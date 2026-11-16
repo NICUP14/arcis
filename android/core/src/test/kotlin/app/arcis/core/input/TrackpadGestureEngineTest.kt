@@ -149,6 +149,8 @@ class TrackpadGestureEngineTest {
         assertEquals(Gesture.Click(Button.LEFT), out.first())
         assertTrue(out.contains(Gesture.DragStart))
         assertEquals(Gesture.DragEnd, out.last())
+        assertEquals(1, out.count { it == Gesture.DragStart })
+        assertEquals(1, out.count { it == Gesture.DragEnd }) // the button is released once
         assertTrue(only<Gesture.PointerMove>().isNotEmpty())
     }
 

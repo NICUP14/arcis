@@ -272,7 +272,7 @@ class TrackpadGestureEngine(
                     lastTapX = p.x; lastTapY = p.y
                 }
             }
-            Mode.DRAGGING -> sink(Gesture.DragEnd)
+            Mode.DRAGGING -> Unit // reset() below ends the drag
             Mode.SHAPE -> {
                 shapePoints += Point(p.x, p.y)
                 sink(Gesture.ShapeDrawn(shapes.recognize(shapePoints)?.command))
