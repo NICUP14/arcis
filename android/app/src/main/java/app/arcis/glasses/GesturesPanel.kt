@@ -4,7 +4,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -77,7 +77,8 @@ private val Shortcuts = listOf(
 /** Every gesture on one card, shown inside Home on the glasses. */
 @Composable
 fun GesturesPanel(onDone: () -> Unit) {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+    BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        val wide = maxWidth >= 860.dp
         Column(
             Modifier
                 .background(Color(0xFF111319), RoundedCornerShape(20.dp))
@@ -87,24 +88,35 @@ fun GesturesPanel(onDone: () -> Unit) {
         ) {
             Text("Gestures", color = GlassesColors.Text, fontSize = 22.sp)
             Spacer(Modifier.height(12.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
-                Column(Modifier.width(300.dp)) {
-                    Group("On the trackpad", Trackpad)
-                    Spacer(Modifier.height(12.dp))
-                    Group("Switching & typing", Switching)
+            val trackpad: @Composable () -> Unit = {
+                Group("On the trackpad", Trackpad)
+                Spacer(Modifier.height(12.dp))
+                Group("Switching & typing", Switching)
+            }
+            val keys: @Composable () -> Unit = {
+                ShapeGroup("Draw a key", Keys)
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Rest your finger until it ticks, then draw in one stroke from the dot.",
+                    color = GlassesColors.Dim,
+                    fontSize = 12.sp,
+                )
+            }
+            val shortcuts: @Composable () -> Unit = { ShapeGroup("Draw a shortcut", Shortcuts) }
+            if (wide) {
+                // Glasses / landscape: three columns side by side.
+                Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
+                    Column(Modifier.width(300.dp)) { trackpad() }
+                    Column(Modifier.width(230.dp)) { keys() }
+                    Column(Modifier.width(230.dp)) { shortcuts() }
                 }
-                Column(Modifier.width(230.dp)) {
-                    ShapeGroup("Draw a key", Keys)
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        "Rest your finger until it ticks, then draw in one stroke from the dot.",
-                        color = GlassesColors.Dim,
-                        fontSize = 12.sp,
-                    )
-                }
-                Column(Modifier.width(230.dp)) {
-                    ShapeGroup("Draw a shortcut", Shortcuts)
-                }
+            } else {
+                // Narrow (e.g. a phone held upright): one column, scrolled.
+                trackpad()
+                Spacer(Modifier.height(16.dp))
+                keys()
+                Spacer(Modifier.height(16.dp))
+                shortcuts()
             }
             Spacer(Modifier.height(16.dp))
             Button("Done", enabled = true, onClick = onDone)
@@ -118,7 +130,7 @@ private fun Group(title: String, rows: List<Pair<String, String>>) {
     Spacer(Modifier.height(6.dp))
     for ((gesture, action) in rows) {
         Row(Modifier.padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(gesture, color = GlassesColors.Text, fontSize = 13.sp, modifier = Modifier.width(150.dp))
+            Text(gesture, color = GlassesColors.Text, fontSize = 13.sp, modifier = Modifier.width(140.dp))
             Text(action, color = GlassesColors.Dim, fontSize = 13.sp)
         }
     }

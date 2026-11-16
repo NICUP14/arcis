@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -65,7 +66,7 @@ fun SettingsPanel(onDone: () -> Unit) {
                 .border(1.dp, GlassesColors.CardBorder, RoundedCornerShape(20.dp))
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 28.dp, vertical = 22.dp)
-                .width(480.dp),
+                .widthIn(max = 480.dp),
         ) {
             Text("Settings", color = GlassesColors.Text, fontSize = 22.sp)
             Spacer(Modifier.height(12.dp))
