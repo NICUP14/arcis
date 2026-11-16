@@ -76,6 +76,7 @@ class BluetoothActivity : ComponentActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         WindowInsetsControllerCompat(window, window.decorView).hide(WindowInsetsCompat.Type.systemBars())
+        closeWhenScreenLeaves()
         setContent {
             val state by app.hid.state.collectAsState()
             LaunchedEffect(state.connected, controlling) { updateActive(state) }

@@ -33,6 +33,7 @@ class GlassesHomeActivity : ComponentActivity() {
             hide(WindowInsetsCompat.Type.systemBars())
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         }
+        closeWhenScreenLeaves()
         setContent {
             GlassesHome(
                 onOpen = ::open,

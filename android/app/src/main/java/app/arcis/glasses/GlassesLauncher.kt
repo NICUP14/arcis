@@ -4,6 +4,11 @@ import android.app.ActivityOptions
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import android.view.Display
+import androidx.activity.ComponentActivity
+import androidx.lifecycle.lifecycleScope
+import app.arcis.ArcisApp
+import kotlinx.coroutines.launch
 
 /** Starts Arcis's own screens on the external display. */
 object GlassesLauncher {
@@ -26,5 +31,19 @@ object GlassesLauncher {
         return runCatching { context.startActivity(intent, options.toBundle()) }
             .onFailure { Log.w("Arcis", "cannot show Home on display $displayId", it) }
             .isSuccess
+    }
+}
+
+/**
+ * Arcis's glasses screens belong on the glasses: when the glasses are unplugged Android
+ * moves them to the phone, so close them instead (the phone shows the controller), and
+ * likewise if another external screen takes over.
+ */
+fun ComponentActivity.closeWhenScreenLeaves() {
+    lifecycleScope.launch {
+        ArcisApp.instance.displays.screen.collect { screen ->
+            val mine = display?.displayId
+            if (screen == null || mine == Display.DEFAULT_DISPLAY || screen.displayId != mine) finish()
+        }
     }
 }
