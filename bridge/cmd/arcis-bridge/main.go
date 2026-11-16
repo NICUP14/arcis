@@ -19,6 +19,7 @@ import (
 	"github.com/NICUP14/arcis/bridge/internal/clip"
 	"github.com/NICUP14/arcis/bridge/internal/discovery"
 	"github.com/NICUP14/arcis/bridge/internal/input"
+	"github.com/NICUP14/arcis/bridge/internal/mic"
 	"github.com/NICUP14/arcis/bridge/internal/pairing"
 	"github.com/NICUP14/arcis/bridge/internal/proto"
 	"github.com/NICUP14/arcis/bridge/internal/server"
@@ -36,6 +37,8 @@ func main() {
 	statusPort := flag.Int("status-port", proto.StatusPort, "localhost port of the status page (0 = off)")
 	noMDNS := flag.Bool("no-mdns", false, "don't announce on the local network")
 	noClip := flag.Bool("no-clipboard", false, "don't share the clipboard with phones")
+	noMic := flag.Bool("no-mic", false, "don't use the phone as a microphone")
+	micDevice := flag.String("mic-device", "", "Windows: output device that feeds the virtual mic (default: VB-Audio \"CABLE Input\")")
 	configDir := flag.String("config", defaultConfigDir(), "where the certificate and paired phones are stored")
 	flag.Parse()
 	if *showVersion {
@@ -67,6 +70,10 @@ func main() {
 		MACs:      wake.MACs,
 		Clipboard: clipboard{},
 		Wake:      wake.Send,
+	}
+	if !*noMic {
+		srv.OpenMic = func() (mic.Sink, error) { return mic.Open(*micDevice) }
+		defer srv.CloseMic()
 	}
 	if !*noClip {
 		ctx, stop := context.WithCancel(context.Background())

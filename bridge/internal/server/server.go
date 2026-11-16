@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/NICUP14/arcis/bridge/internal/input"
+	"github.com/NICUP14/arcis/bridge/internal/mic"
 	"github.com/NICUP14/arcis/bridge/internal/pairing"
 	"github.com/NICUP14/arcis/bridge/internal/proto"
 )
@@ -34,6 +35,12 @@ type Server struct {
 	Clipboard Clipboard
 	// Wake broadcasts Wake-on-LAN for another computer (wake relay). May be nil.
 	Wake func(mac string) error
+	// OpenMic opens the virtual microphone on first use. May be nil (no mic).
+	OpenMic func() (mic.Sink, error)
+
+	micMu     sync.Mutex
+	micSink   mic.Sink
+	micFailed bool
 
 	inputMu   sync.Mutex // input from several phones is serialized
 	sessMu    sync.Mutex
@@ -78,6 +85,41 @@ func (s *Server) Broadcast(m proto.Message) {
 func (s *Server) ClipboardSetByPhone(text string) bool {
 	v, _ := s.lastClip.Load().(string)
 	return v == text
+}
+
+// playMic sends phone audio to the virtual microphone, opening it on first use.
+func (s *Server) playMic(pcm []byte) {
+	if s.OpenMic == nil || len(pcm) == 0 {
+		return
+	}
+	s.micMu.Lock()
+	defer s.micMu.Unlock()
+	if s.micSink == nil {
+		if s.micFailed {
+			return
+		}
+		sink, err := s.OpenMic()
+		if err != nil {
+			s.micFailed = true // say it once, not 50 times a second
+			s.logf("phone microphone unavailable: %v", err)
+			return
+		}
+		s.logf("phone microphone -> %s", sink.Name())
+		s.micSink = sink
+	}
+	if err := s.micSink.Write(pcm); err != nil {
+		s.logf("microphone: %v", err)
+	}
+}
+
+// CloseMic releases the virtual microphone.
+func (s *Server) CloseMic() {
+	s.micMu.Lock()
+	defer s.micMu.Unlock()
+	if s.micSink != nil {
+		_ = s.micSink.Close()
+		s.micSink = nil
+	}
 }
 
 // Connected is the number of phones currently connected.
@@ -205,6 +247,9 @@ func (s *Server) session(c net.Conn, r *proto.Reader) {
 					s.logf("clipboard: %v", err)
 				}
 			}
+			continue
+		case proto.TypeAudio:
+			s.playMic(m.Audio)
 			continue
 		case proto.TypeWake:
 			if s.Wake != nil {

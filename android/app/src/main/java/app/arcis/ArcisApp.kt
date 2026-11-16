@@ -21,6 +21,8 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import app.arcis.glasses.GlassesLauncher
 import app.arcis.input.HardwareKeys
+import app.arcis.input.PushToTalk
+import app.arcis.voice.MicStreamer
 import app.arcis.input.VoiceInput
 import app.arcis.switcher.AppSwitcher
 
@@ -38,6 +40,8 @@ class ArcisApp : Application() {
     lateinit var voice: VoiceInput
         private set
     lateinit var hardwareKeys: HardwareKeys
+        private set
+    lateinit var pushToTalk: PushToTalk
         private set
     lateinit var controllerPrefs: ControllerPrefs
         private set
@@ -71,7 +75,8 @@ class ArcisApp : Application() {
         switcher = AppSwitcher(this).also { it.start() }
         phoneApps.onOpened = switcher::noteOpened
         voice = VoiceInput(this)
-        hardwareKeys = HardwareKeys(onHome = ::showHomeOnScreen, voice = voice)
+        pushToTalk = PushToTalk(hosts, MicStreamer(this) { pcm -> hosts.sendAudio(pcm) })
+        hardwareKeys = HardwareKeys(onHome = ::showHomeOnScreen, voice = voice, pushToTalk = pushToTalk)
     }
 
     /** Moonlight in front + bridge connected = control the computer; its own cursor is in the video. */

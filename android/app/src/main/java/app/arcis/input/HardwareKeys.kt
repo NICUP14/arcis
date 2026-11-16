@@ -10,9 +10,15 @@ import app.arcis.ArcisApp
  * service, because the controller window never takes key focus):
  * - Volume up, short press: Home on the external screen
  * - Volume up, hold: speech-to-text until released
- * Without an external screen the keys behave normally.
+ * - Volume down, hold (while a computer is connected): talk through the computer's
+ *   virtual microphone until released (push-to-talk)
+ * Otherwise the keys behave normally.
  */
-class HardwareKeys(private val onHome: () -> Unit, private val voice: VoiceInput) {
+class HardwareKeys(
+    private val onHome: () -> Unit,
+    private val voice: VoiceInput,
+    private val pushToTalk: PushToTalk,
+) {
 
     private val handler = Handler(Looper.getMainLooper())
     private var volumeUpDown = false
@@ -24,6 +30,7 @@ class HardwareKeys(private val onHome: () -> Unit, private val voice: VoiceInput
 
     fun onKey(event: KeyEvent): Boolean {
         if (ArcisApp.instance.displays.screen.value == null) return false
+        if (event.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) return pushToTalk.onKey(event)
         if (event.keyCode != KeyEvent.KEYCODE_VOLUME_UP) return false
         when (event.action) {
             KeyEvent.ACTION_DOWN -> if (!volumeUpDown) {

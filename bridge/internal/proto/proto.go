@@ -42,8 +42,9 @@ const (
 	TypePing   = "ping"   // {t}
 	TypePong   = "pong"   // {t}
 
-	TypeClip = "clip" // both directions: {text} clipboard text
-	TypeWake = "wake" // phone -> bridge: {mac} broadcast Wake-on-LAN (wake relay)
+	TypeClip  = "clip"  // both directions: {text} clipboard text
+	TypeWake  = "wake"  // phone -> bridge: {mac} broadcast Wake-on-LAN (wake relay)
+	TypeAudio = "audio" // phone -> bridge: {audio} 16 kHz mono s16le PCM for the virtual mic
 )
 
 // Mouse buttons.
@@ -70,6 +71,8 @@ type Message struct {
 	// MAC addresses of the computer's network cards (welcome), for Wake-on-LAN.
 	MACs []string `json:"macs,omitempty"`
 	MAC  string   `json:"mac,omitempty"`
+	// Audio is PCM for the virtual microphone (base64 in JSON).
+	Audio []byte `json:"audio,omitempty"`
 
 	// Input.
 	DX     float64  `json:"dx,omitempty"`

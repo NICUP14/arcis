@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/NICUP14/arcis/bridge/internal/certs"
+	"github.com/NICUP14/arcis/bridge/internal/mic"
 	"github.com/NICUP14/arcis/bridge/internal/pairing"
 	"github.com/NICUP14/arcis/bridge/internal/proto"
 )
@@ -41,6 +42,21 @@ func (f *fakeInput) entries() []string {
 	defer f.mu.Unlock()
 	return append([]string(nil), f.log...)
 }
+
+type fakeMic struct {
+	mu    sync.Mutex
+	bytes int
+}
+
+func (f *fakeMic) Write(p []byte) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.bytes += len(p)
+	return nil
+}
+func (f *fakeMic) Name() string { return "fake" }
+func (f *fakeMic) Close() error { return nil }
+func (f *fakeMic) total() int   { f.mu.Lock(); defer f.mu.Unlock(); return f.bytes }
 
 type fakeClip struct {
 	mu   sync.Mutex
@@ -170,6 +186,29 @@ func TestClipboardAndWake(t *testing.T) {
 	s.Broadcast(proto.Message{T: proto.TypeClip, Text: "from pc"})
 	if m, _ := r2.Read(); m.T != proto.TypeClip || m.Text != "from pc" {
 		t.Fatalf("expected clip, got %+v", m)
+	}
+}
+
+func TestMicAudio(t *testing.T) {
+	s, _, addr := startServer(t)
+	fm := &fakeMic{}
+	opened := 0
+	s.OpenMic = func() (mic.Sink, error) { opened++; return fm, nil }
+	fp := certs.Fingerprint(s.Cert)
+	c, r := dial(t, addr, fp)
+	_ = proto.Write(c, proto.Message{T: proto.TypePair, PIN: s.Store.PIN(), Name: "P"})
+	paired, _ := r.Read()
+	c2, r2 := dial(t, addr, fp)
+	_ = proto.Write(c2, proto.Message{T: proto.TypeHello, Token: paired.Token})
+	_, _ = r2.Read()
+	frame := make([]byte, 640) // 20 ms
+	for i := 0; i < 5; i++ {
+		_ = proto.Write(c2, proto.Message{T: proto.TypeAudio, Audio: frame})
+	}
+	_ = proto.Write(c2, proto.Message{T: proto.TypePing, Time: 2})
+	_, _ = r2.Read()
+	if fm.total() != 5*640 || opened != 1 {
+		t.Fatalf("mic got %d bytes, opened %d times", fm.total(), opened)
 	}
 }
 

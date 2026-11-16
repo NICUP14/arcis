@@ -43,6 +43,7 @@ Then any number of input messages (no replies, except pong):
 | `ping` | `time` | bridge answers `{"t":"pong","time":...}` (latency) |
 | `clip` | `text` | both directions: clipboard text (bridge sends when the computer's clipboard changes) |
 | `wake` | `mac` | the bridge broadcasts Wake-on-LAN for that MAC on its networks (wake relay) |
+| `audio` | `audio` (base64) | 20 ms of 16 kHz mono s16le PCM for the virtual microphone |
 
 `welcome` and `paired` also carry `addresses` (where the bridge can be reached) and
 `welcome` carries `macs` (the computer's MAC addresses, for waking it later).

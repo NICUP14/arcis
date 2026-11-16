@@ -52,6 +52,20 @@ sudo modprobe uinput && sudo udevadm control --reload && sudo udevadm trigger
   NAS, old laptop) to wake computers from anywhere over Tailscale. The computer needs
   Wake-on-LAN enabled in its BIOS/UEFI and network adapter settings.
 
+## Phone as a microphone (headset)
+
+Hold **volume down** while a computer is connected and talk: the phone microphone is
+streamed to the computer, which offers it as a microphone to Discord, Teams, Zoom,
+games... Sound from the computer already plays in the glasses through Moonlight.
+
+| System | Setup |
+|---|---|
+| Windows | Install the free [VB-Audio Virtual Cable](https://vb-audio.com/Cable/). The bridge plays the phone into **CABLE Input**; choose **CABLE Output** as the microphone in your apps. Another device: `-mic-device "<name part>"`. |
+| Linux | Needs `pactl` (PipeWire or PulseAudio). The bridge creates a source called **Arcis_Mic**; choose it in your apps. |
+| macOS | Not supported yet. |
+
+Audio is 16 kHz mono (speech quality), about 256 kbit/s. Turn off with `-no-mic`.
+
 ## Security
 
 - TLS with certificate pinning and a per-phone secret token (see

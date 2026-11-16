@@ -222,6 +222,12 @@ class HostManager(context: Context) {
     fun key(key: String, mods: List<String> = emptyList()) = send(msg("key", "key" to key, "mods" to mods.ifEmpty { null }))
     fun text(text: String) = send(msg("text", "text" to text))
 
+    /** A frame of microphone audio (16 kHz mono s16le) for the computer's virtual mic. */
+    fun sendAudio(pcm: ByteArray) = send(msg("audio", "audio" to android.util.Base64.encodeToString(pcm, android.util.Base64.NO_WRAP)))
+
+    /** Name of the connected computer, if any. */
+    val connectedName: String? get() = (_connection.value as? HostConnection.Connected)?.host?.name
+
     /** Puts [text] on the connected computer's clipboard. */
     fun sendClipboard(text: String) = send(msg("clip", "text" to text))
 
