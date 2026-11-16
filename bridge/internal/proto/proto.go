@@ -41,6 +41,9 @@ const (
 	TypeText   = "text"   // {text}
 	TypePing   = "ping"   // {t}
 	TypePong   = "pong"   // {t}
+
+	TypeClip = "clip" // both directions: {text} clipboard text
+	TypeWake = "wake" // phone -> bridge: {mac} broadcast Wake-on-LAN (wake relay)
 )
 
 // Mouse buttons.
@@ -64,6 +67,9 @@ type Message struct {
 	Msg     string `json:"msg,omitempty"`
 	// Addresses the bridge can be reached at (LAN, Tailscale...), sent in paired/welcome.
 	Addresses []string `json:"addresses,omitempty"`
+	// MAC addresses of the computer's network cards (welcome), for Wake-on-LAN.
+	MACs []string `json:"macs,omitempty"`
+	MAC  string   `json:"mac,omitempty"`
 
 	// Input.
 	DX     float64  `json:"dx,omitempty"`

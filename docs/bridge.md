@@ -40,6 +40,18 @@ sudo modprobe uinput && sudo udevadm control --reload && sudo udevadm trigger
 2. In Arcis on the phone, pick the computer (found automatically on the same
    network) and enter the PIN. Pairing is remembered on both sides.
 
+## Clipboard and waking
+
+- **Clipboard**: text copied on the computer is put on the phone's clipboard
+  (paste it in any phone app). Drawing **C** (copy) in a phone app also puts that
+  text on the computer's clipboard. Linux needs `wl-clipboard` (Wayland) or `xclip`.
+  Turn off with `-no-clipboard`.
+- **Wake relay**: right-click (long-press) a computer's tile to wake it. The phone
+  sends Wake-on-LAN itself (works at home) and asks any connected bridge to send it
+  on its own network too. Run a bridge on an always-on device at home (Raspberry Pi,
+  NAS, old laptop) to wake computers from anywhere over Tailscale. The computer needs
+  Wake-on-LAN enabled in its BIOS/UEFI and network adapter settings.
+
 ## Security
 
 - TLS with certificate pinning and a per-phone secret token (see

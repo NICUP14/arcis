@@ -1,5 +1,7 @@
 package app.arcis.host
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
@@ -47,6 +49,8 @@ class HostManager(context: Context) {
 
     private val _connection = MutableStateFlow<HostConnection>(HostConnection.Idle)
     val connection: StateFlow<HostConnection> = _connection.asStateFlow()
+
+    private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
 
     @Volatile
     private var conn: BridgeConnection? = null
@@ -134,7 +138,11 @@ class HostManager(context: Context) {
                         error(reply.optString("msg", "Refused"))
                     }
                     val os = reply.optString("os")
-                    val updated = host.copy(os = os, addresses = AddressOrder.order(host.addresses, reply.stringList("addresses")))
+                    val updated = host.copy(
+                        os = os,
+                        addresses = AddressOrder.order(host.addresses, reply.stringList("addresses")),
+                        macs = reply.stringList("macs").ifEmpty { host.macs },
+                    )
                     if (updated != host) store.save(updated)
                     conn = c
                     _connection.value = HostConnection.Connected(updated, address, os, null)
@@ -170,6 +178,18 @@ class HostManager(context: Context) {
     }
 
     private fun onMessage(m: org.json.JSONObject) {
+        if (m.optString("t") == "clip") {
+            // Copied on the computer: make it pasteable on the phone too.
+            val text = m.optString("text")
+            Log.i(TAG, "clipboard from computer (${text.length} chars)")
+            mainHandler.post {
+                runCatching {
+                    appContext.getSystemService(ClipboardManager::class.java)
+                        .setPrimaryClip(ClipData.newPlainText("From computer", text))
+                }
+            }
+            return
+        }
         if (m.optString("t") == "pong") {
             val rtt = SystemClock.elapsedRealtime() - m.optLong("time")
             (_connection.value as? HostConnection.Connected)?.let { _connection.value = it.copy(latencyMs = rtt) }
@@ -201,6 +221,39 @@ class HostManager(context: Context) {
     fun scroll(dx: Float, dy: Float) = send(msg("scroll", "dx" to dx.toDouble(), "dy" to dy.toDouble()))
     fun key(key: String, mods: List<String> = emptyList()) = send(msg("key", "key" to key, "mods" to mods.ifEmpty { null }))
     fun text(text: String) = send(msg("text", "text" to text))
+
+    /** Puts [text] on the connected computer's clipboard. */
+    fun sendClipboard(text: String) = send(msg("clip", "text" to text))
+
+    /**
+     * Wakes [host]: a Wake-on-LAN broadcast from the phone (works at home) and, if another
+     * computer's bridge is connected, through it as a relay (works from anywhere).
+     * Returns false if the computer's MAC address isn't known yet.
+     */
+    fun wake(host: SavedHost): Boolean {
+        if (host.macs.isEmpty()) return false
+        scope.launch {
+            for (mac in host.macs) {
+                runCatching { sendMagicPacket(mac) }.onFailure { Log.i(TAG, "wake $mac: ${it.message}") }
+                send(msg("wake", "mac" to mac)) // relay through the connected bridge, if any
+            }
+        }
+        return true
+    }
+
+    private fun sendMagicPacket(mac: String) {
+        val hw = mac.split(":", "-").map { it.toInt(16).toByte() }
+        require(hw.size == 6) { "bad MAC $mac" }
+        val packet = ByteArray(6) { 0xFF.toByte() } + List(16) { hw }.flatten()
+        java.net.DatagramSocket().use { socket ->
+            socket.broadcast = true
+            for (port in listOf(9, 7)) {
+                socket.send(
+                    java.net.DatagramPacket(packet, packet.size, java.net.InetAddress.getByName("255.255.255.255"), port),
+                )
+            }
+        }
+    }
 
     /** True when this phone has a Tailscale address (100.64.0.0/10) right now. */
     fun phoneOnTailscale(): Boolean = runCatching {

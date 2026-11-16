@@ -42,6 +42,14 @@ func (f *fakeInput) entries() []string {
 	return append([]string(nil), f.log...)
 }
 
+type fakeClip struct {
+	mu   sync.Mutex
+	text string
+}
+
+func (f *fakeClip) Get() (string, error) { f.mu.Lock(); defer f.mu.Unlock(); return f.text, nil }
+func (f *fakeClip) Set(t string) error   { f.mu.Lock(); defer f.mu.Unlock(); f.text = t; return nil }
+
 func startServer(t *testing.T) (*Server, *fakeInput, string) {
 	t.Helper()
 	dir := t.TempDir()
@@ -55,7 +63,12 @@ func startServer(t *testing.T) (*Server, *fakeInput, string) {
 	}
 	in := &fakeInput{}
 	s := &Server{Store: store, Input: in, Cert: cert, HostName: "test-pc",
-		Addresses: func() []string { return []string{"192.168.1.5", "100.64.1.2"} }}
+		Addresses: func() []string { return []string{"192.168.1.5", "100.64.1.2"} },
+		MACs:      func() []string { return []string{"aa:bb:cc:dd:ee:ff"} },
+		Clipboard: &fakeClip{},
+	}
+	var woke []string
+	s.Wake = func(mac string) error { woke = append(woke, mac); return nil }
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
@@ -129,6 +142,34 @@ func TestPairThenControl(t *testing.T) {
 	}
 	if s.Connected() != 1 || s.LastPhone() != "Galaxy" {
 		t.Fatalf("connected=%d last=%q", s.Connected(), s.LastPhone())
+	}
+}
+
+func TestClipboardAndWake(t *testing.T) {
+	s, _, addr := startServer(t)
+	fp := certs.Fingerprint(s.Cert)
+	c, r := dial(t, addr, fp)
+	_ = proto.Write(c, proto.Message{T: proto.TypePair, PIN: s.Store.PIN(), Name: "P"})
+	paired, _ := r.Read()
+	c2, r2 := dial(t, addr, fp)
+	_ = proto.Write(c2, proto.Message{T: proto.TypeHello, Token: paired.Token})
+	welcome, _ := r2.Read()
+	if len(welcome.MACs) != 1 {
+		t.Fatalf("welcome without MACs: %+v", welcome)
+	}
+	// Phone -> computer clipboard.
+	_ = proto.Write(c2, proto.Message{T: proto.TypeClip, Text: "from phone"})
+	_ = proto.Write(c2, proto.Message{T: proto.TypePing, Time: 1})
+	if m, _ := r2.Read(); m.T != proto.TypePong {
+		t.Fatalf("expected pong, got %+v", m)
+	}
+	if got, _ := s.Clipboard.Get(); got != "from phone" || !s.ClipboardSetByPhone("from phone") {
+		t.Fatalf("clipboard %q", got)
+	}
+	// Computer -> phone clipboard.
+	s.Broadcast(proto.Message{T: proto.TypeClip, Text: "from pc"})
+	if m, _ := r2.Read(); m.T != proto.TypeClip || m.Text != "from pc" {
+		t.Fatalf("expected clip, got %+v", m)
 	}
 }
 

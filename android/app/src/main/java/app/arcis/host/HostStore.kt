@@ -15,6 +15,8 @@ data class SavedHost(
     val fingerprint: String,
     val token: String,
     val os: String = "",
+    /** Network card MAC addresses, for Wake-on-LAN. */
+    val macs: List<String> = emptyList(),
 ) {
     fun toJson(): JSONObject = JSONObject()
         .put("name", name)
@@ -23,6 +25,7 @@ data class SavedHost(
         .put("fingerprint", fingerprint)
         .put("token", token)
         .put("os", os)
+        .put("macs", JSONArray(macs))
 
     companion object {
         fun fromJson(o: JSONObject) = SavedHost(
@@ -32,6 +35,7 @@ data class SavedHost(
             fingerprint = o.getString("fingerprint"),
             token = o.getString("token"),
             os = o.optString("os"),
+            macs = o.optJSONArray("macs")?.let { a -> (0 until a.length()).map { a.getString(it) } }.orEmpty(),
         )
     }
 }

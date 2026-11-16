@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -15,12 +16,14 @@ import (
 	"time"
 
 	"github.com/NICUP14/arcis/bridge/internal/certs"
+	"github.com/NICUP14/arcis/bridge/internal/clip"
 	"github.com/NICUP14/arcis/bridge/internal/discovery"
 	"github.com/NICUP14/arcis/bridge/internal/input"
 	"github.com/NICUP14/arcis/bridge/internal/pairing"
 	"github.com/NICUP14/arcis/bridge/internal/proto"
 	"github.com/NICUP14/arcis/bridge/internal/server"
 	"github.com/NICUP14/arcis/bridge/internal/status"
+	"github.com/NICUP14/arcis/bridge/internal/wake"
 )
 
 // Version is the bridge version, overridable at build time with -ldflags "-X main.Version=...".
@@ -32,6 +35,7 @@ func main() {
 	bind := flag.String("bind", "", "listen only on this address (e.g. a Tailscale IP or 127.0.0.1); default all")
 	statusPort := flag.Int("status-port", proto.StatusPort, "localhost port of the status page (0 = off)")
 	noMDNS := flag.Bool("no-mdns", false, "don't announce on the local network")
+	noClip := flag.Bool("no-clipboard", false, "don't share the clipboard with phones")
 	configDir := flag.String("config", defaultConfigDir(), "where the certificate and paired phones are stored")
 	flag.Parse()
 	if *showVersion {
@@ -57,7 +61,20 @@ func main() {
 		defer inj.Close()
 	}
 
-	srv := &server.Server{Store: store, Input: inj, Cert: cert, HostName: host, Log: logger, Addresses: status.LocalAddresses}
+	srv := &server.Server{
+		Store: store, Input: inj, Cert: cert, HostName: host, Log: logger,
+		Addresses: status.LocalAddresses,
+		MACs:      wake.MACs,
+		Clipboard: clipboard{},
+		Wake:      wake.Send,
+	}
+	if !*noClip {
+		ctx, stop := context.WithCancel(context.Background())
+		defer stop()
+		go clip.Watch(ctx, 700*time.Millisecond, srv.ClipboardSetByPhone, func(text string) {
+			srv.Broadcast(proto.Message{T: proto.TypeClip, Text: text})
+		})
+	}
 	ln, err := net.Listen("tcp", net.JoinHostPort(*bind, fmt.Sprint(*port)))
 	if err != nil {
 		logger.Fatalf("listen on port %d: %v", *port, err)
@@ -111,6 +128,12 @@ func main() {
 		logger.Fatal(err)
 	}
 }
+
+// clipboard adapts the clip package to server.Clipboard.
+type clipboard struct{}
+
+func (clipboard) Get() (string, error) { return clip.Get() }
+func (clipboard) Set(t string) error   { return clip.Set(t) }
 
 func defaultConfigDir() string {
 	if d, err := os.UserConfigDir(); err == nil {

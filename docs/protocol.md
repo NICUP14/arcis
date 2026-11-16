@@ -41,6 +41,11 @@ Then any number of input messages (no replies, except pong):
 | `key` | `key`, `mods` (`ctrl`, `shift`, `alt`, `meta`) | named key: `Enter`, `Backspace`, `Escape`, `Tab`, `Space`, `Delete`, arrows, `Home`, `End`, `PageUp`, `PageDown`, `A`–`Z`, `0`–`9` |
 | `text` | `text` | type Unicode text (Linux: US-layout characters only) |
 | `ping` | `time` | bridge answers `{"t":"pong","time":...}` (latency) |
+| `clip` | `text` | both directions: clipboard text (bridge sends when the computer's clipboard changes) |
+| `wake` | `mac` | the bridge broadcasts Wake-on-LAN for that MAC on its networks (wake relay) |
+
+`welcome` and `paired` also carry `addresses` (where the bridge can be reached) and
+`welcome` carries `macs` (the computer's MAC addresses, for waking it later).
 
 ## Discovery
 

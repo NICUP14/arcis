@@ -4,7 +4,10 @@ import android.os.Build
 import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import app.arcis.a11y.ArcisAccessibilityService
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -55,6 +58,7 @@ fun computerTiles(saved: List<SavedHost>, found: List<FoundHost>): List<Computer
     return saved.map { ComputerTile.Paired(it) } + unpaired.map { ComputerTile.Found(it) } + ComputerTile.Add
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ComputerTileView(tile: ComputerTile, connection: HostConnection, onClick: () -> Unit) {
     val (title, subtitle) = when (tile) {
@@ -78,7 +82,11 @@ fun ComputerTileView(tile: ComputerTile, connection: HostConnection, onClick: ()
             .width(132.dp)
             .background(GlassesColors.Card, RoundedCornerShape(16.dp))
             .border(1.dp, GlassesColors.CardBorder, RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick)
+            .combinedClickable(
+                onClick = onClick,
+                // Right click / long-press: wake a sleeping computer.
+                onLongClick = { (tile as? ComputerTile.Paired)?.host?.let(::wakeComputer) },
+            )
             .padding(vertical = 14.dp, horizontal = 8.dp),
     ) {
         Box(
@@ -89,6 +97,13 @@ fun ComputerTileView(tile: ComputerTile, connection: HostConnection, onClick: ()
         Text(title, color = GlassesColors.Text, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Text(subtitle, color = GlassesColors.Dim, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
+}
+
+private fun wakeComputer(host: SavedHost) {
+    val sent = ArcisApp.instance.hosts.wake(host)
+    ArcisAccessibilityService.instance?.uiOverlay?.flash(
+        if (sent) "Waking ${host.name}…" else "Connect to ${host.name} once so Arcis learns how to wake it",
+    )
 }
 
 /**

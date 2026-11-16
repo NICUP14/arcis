@@ -28,10 +28,56 @@ type Server struct {
 	// Addresses lists where phones can reach this computer (sent so they can fall back
 	// from the LAN to e.g. Tailscale on their own). May be nil.
 	Addresses func() []string
+	// MACs lists this computer's MAC addresses (sent in welcome). May be nil.
+	MACs func() []string
+	// Clipboard syncs text with phones. May be nil (no sync).
+	Clipboard Clipboard
+	// Wake broadcasts Wake-on-LAN for another computer (wake relay). May be nil.
+	Wake func(mac string) error
 
 	inputMu   sync.Mutex // input from several phones is serialized
+	sessMu    sync.Mutex
+	sessions  map[*sessionConn]struct{}
+	lastClip  atomic.Value // string set by a phone, not to be echoed back
 	connected atomic.Int32
 	lastPhone atomic.Value // string
+}
+
+// Clipboard is the computer's text clipboard.
+type Clipboard interface {
+	Get() (string, error)
+	Set(text string) error
+}
+
+// sessionConn serializes writes to one phone.
+type sessionConn struct {
+	mu sync.Mutex
+	c  net.Conn
+}
+
+func (s *sessionConn) write(m proto.Message) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return proto.Write(s.c, m)
+}
+
+// Broadcast sends m to every connected phone.
+func (s *Server) Broadcast(m proto.Message) {
+	s.sessMu.Lock()
+	list := make([]*sessionConn, 0, len(s.sessions))
+	for sc := range s.sessions {
+		list = append(list, sc)
+	}
+	s.sessMu.Unlock()
+	for _, sc := range list {
+		_ = sc.write(m)
+	}
+}
+
+// ClipboardSetByPhone reports whether text is what a phone last put on the clipboard.
+func (s *Server) ClipboardSetByPhone(text string) bool {
+	v, _ := s.lastClip.Load().(string)
+	return v == text
 }
 
 // Connected is the number of phones currently connected.
@@ -59,6 +105,13 @@ func (s *Server) Serve(ln net.Listener) error {
 		}
 		go s.handle(c)
 	}
+}
+
+func (s *Server) macs() []string {
+	if s.MACs == nil {
+		return nil
+	}
+	return s.MACs()
 }
 
 func (s *Server) addresses() []string {
@@ -104,7 +157,7 @@ func (s *Server) handle(c net.Conn) {
 		}
 		if err := proto.Write(c, proto.Message{
 			T: proto.TypeWelcome, Host: s.HostName, OS: runtime.GOOS, Version: proto.Version,
-			Addresses: s.addresses(),
+			Addresses: s.addresses(), MACs: s.macs(),
 		}); err != nil {
 			return
 		}
@@ -122,14 +175,45 @@ func (s *Server) handle(c net.Conn) {
 
 // session performs messages from an authenticated phone until it disconnects.
 func (s *Server) session(c net.Conn, r *proto.Reader) {
+	sc := &sessionConn{c: c}
+	s.sessMu.Lock()
+	if s.sessions == nil {
+		s.sessions = map[*sessionConn]struct{}{}
+	}
+	s.sessions[sc] = struct{}{}
+	s.sessMu.Unlock()
+	defer func() {
+		s.sessMu.Lock()
+		delete(s.sessions, sc)
+		s.sessMu.Unlock()
+	}()
+
 	var remX, remY float64 // sub-pixel pointer movement
 	for {
 		m, err := r.Read()
 		if err != nil {
 			return
 		}
-		if m.T == proto.TypePing {
-			_ = proto.Write(c, proto.Message{T: proto.TypePong, Time: m.Time})
+		switch m.T {
+		case proto.TypePing:
+			_ = sc.write(proto.Message{T: proto.TypePong, Time: m.Time})
+			continue
+		case proto.TypeClip:
+			if s.Clipboard != nil {
+				s.lastClip.Store(m.Text)
+				if err := s.Clipboard.Set(m.Text); err != nil {
+					s.logf("clipboard: %v", err)
+				}
+			}
+			continue
+		case proto.TypeWake:
+			if s.Wake != nil {
+				if err := s.Wake(m.MAC); err != nil {
+					s.logf("wake %s: %v", m.MAC, err)
+				} else {
+					s.logf("wake relay: sent Wake-on-LAN to %s", m.MAC)
+				}
+			}
 			continue
 		}
 		if err := s.perform(m, &remX, &remY); err != nil {

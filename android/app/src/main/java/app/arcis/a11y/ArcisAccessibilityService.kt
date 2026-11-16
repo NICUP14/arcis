@@ -210,9 +210,16 @@ class ArcisAccessibilityService : AccessibilityService() {
     /** Result of a drawn edit shortcut in a phone app. */
     enum class EditResult { DONE, NO_FIELD, UNSUPPORTED }
 
+    /** Text of the last drawn copy (selection, or the whole field if nothing was selected). */
+    var lastCopiedText: String? = null
+        private set
+
     /** Copy / paste / undo / Enter / Backspace on the selected text field of the external screen. */
     fun performEdit(command: ShapeCommand): EditResult {
         val field = focusedField() ?: return EditResult.NO_FIELD
+        if (command == ShapeCommand.COPY) {
+            lastCopiedText = if (field.start == field.end) field.text else field.text.substring(field.start, field.end)
+        }
         val ic = connection()
         if (ic != null) {
             // Android 13+: real key events and menu actions, so the keyboard stays in sync.

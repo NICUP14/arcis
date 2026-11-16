@@ -1,6 +1,7 @@
 package app.arcis.input
 
 import android.content.Context
+import android.util.Log
 import app.arcis.ArcisApp
 import app.arcis.a11y.ArcisAccessibilityService
 import app.arcis.core.input.Button
@@ -15,6 +16,7 @@ import app.arcis.glasses.GlassesLauncher
 class InputRouter(private val context: Context) {
 
     fun handle(gesture: Gesture) {
+        if (gesture !is Gesture.PointerMove && gesture !is Gesture.Scroll) Log.d(TAG, "gesture $gesture")
         if (ArcisApp.instance.switcher.handle(gesture, context)) return
         if (ArcisApp.instance.bluetoothTarget.handle(gesture)) return
         if (ArcisApp.instance.hostTarget.handle(gesture)) return
@@ -44,8 +46,15 @@ class InputRouter(private val context: Context) {
             overlay?.flash("Shape not recognized")
             return
         }
-        val message = when (svc.performEdit(command)) {
-            ArcisAccessibilityService.EditResult.DONE -> DONE_LABELS.getValue(command)
+        val result = svc.performEdit(command)
+        Log.d(TAG, "shortcut $command -> $result")
+        val message = when (result) {
+            ArcisAccessibilityService.EditResult.DONE -> {
+                // Copied in a phone app: also put it on the connected computer's clipboard.
+                val hosts = ArcisApp.instance.hosts
+                if (command == ShapeCommand.COPY && hosts.isConnected) svc.lastCopiedText?.let(hosts::sendClipboard)
+                DONE_LABELS.getValue(command)
+            }
             ArcisAccessibilityService.EditResult.NO_FIELD -> "Select a text field first"
             ArcisAccessibilityService.EditResult.UNSUPPORTED ->
                 if (command == ShapeCommand.UNDO) "Undo needs Android 13 or newer" else "Not possible here"
@@ -59,6 +68,7 @@ class InputRouter(private val context: Context) {
     }
 
     private companion object {
+        const val TAG = "ArcisInput"
         val DONE_LABELS = mapOf(
             ShapeCommand.COPY to "Copied",
             ShapeCommand.PASTE to "Pasted",
