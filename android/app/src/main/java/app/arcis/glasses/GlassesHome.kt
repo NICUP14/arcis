@@ -44,7 +44,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -173,23 +175,35 @@ private fun AppTile(app: PhoneApp, favorite: Boolean, onOpen: () -> Unit, onTogg
 
 @Composable
 private fun SearchField(query: String, onChange: (String) -> Unit) {
-    Box(
+    // The first click on the screen moves window focus here; a keyboard request made in the
+    // same instant can get lost, so ask again once the field is focused.
+    val keyboard = LocalSoftwareKeyboardController.current
+    var focused by remember { mutableStateOf(false) }
+    LaunchedEffect(focused) {
+        if (focused) {
+            delay(150)
+            keyboard?.show()
+        }
+    }
+    // The whole pill is the text field, so a click anywhere on it starts typing.
+    BasicTextField(
+        value = query,
+        onValueChange = onChange,
+        singleLine = true,
+        textStyle = TextStyle(color = GlassesColors.Text, fontSize = 16.sp),
+        cursorBrush = SolidColor(GlassesColors.Accent),
         modifier = Modifier
             .fillMaxWidth(0.5f)
+            .onFocusChanged { focused = it.isFocused }
             .background(GlassesColors.Card, RoundedCornerShape(24.dp))
-            .border(1.dp, GlassesColors.CardBorder, RoundedCornerShape(24.dp))
-            .padding(horizontal = 20.dp, vertical = 12.dp),
-    ) {
-        if (query.isEmpty()) Text("Search apps", color = GlassesColors.Dim, fontSize = 16.sp)
-        BasicTextField(
-            value = query,
-            onValueChange = onChange,
-            singleLine = true,
-            textStyle = TextStyle(color = GlassesColors.Text, fontSize = 16.sp),
-            cursorBrush = SolidColor(GlassesColors.Accent),
-            modifier = Modifier.fillMaxWidth(),
-        )
-    }
+            .border(1.dp, GlassesColors.CardBorder, RoundedCornerShape(24.dp)),
+        decorationBox = { inner ->
+            Box(Modifier.padding(horizontal = 20.dp, vertical = 12.dp)) {
+                if (query.isEmpty()) Text("Search apps", color = GlassesColors.Dim, fontSize = 16.sp)
+                inner()
+            }
+        },
+    )
 }
 
 @Composable

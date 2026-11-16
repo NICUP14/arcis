@@ -20,26 +20,22 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
 import app.arcis.a11y.ArcisAccessibilityService
-import app.arcis.controller.TrackpadView
-import app.arcis.core.input.Gesture
+import app.arcis.controller.ControllerMode
+import app.arcis.controller.ControllerPrefs
+import app.arcis.controller.ControllerScreen
 import app.arcis.glasses.GlassesLauncher
 import app.arcis.input.InputRouter
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /** Phone-side controller: setup/status screens, or the trackpad when everything is ready. */
@@ -47,6 +43,7 @@ class MainActivity : ComponentActivity() {
 
     private val displays get() = ArcisApp.instance.displays
     private lateinit var router: InputRouter
+    private lateinit var controllerPrefs: ControllerPrefs
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -61,6 +58,7 @@ class MainActivity : ComponentActivity() {
             return
         }
         router = InputRouter(this)
+        controllerPrefs = ControllerPrefs(this)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         WindowInsetsControllerCompat(window, window.decorView).apply {
             hide(WindowInsetsCompat.Type.systemBars())
@@ -69,12 +67,13 @@ class MainActivity : ComponentActivity() {
         setContent {
             val screen by displays.screen.collectAsState()
             val a11y by ArcisAccessibilityService.connected.collectAsState()
+            val mode by controllerPrefs.mode.collectAsState()
             val trackpad = screen != null && a11y
-            LaunchedEffect(trackpad) { setTrackpadWindow(trackpad) }
+            LaunchedEffect(trackpad, mode) { setControllerWindow(trackpad, mode) }
             when {
                 screen == null -> Message("Connect your glasses or an external screen over USB-C")
                 !a11y -> AccessibilitySetup { openAccessibilitySettings() }
-                else -> Controller(router::handle)
+                else -> ControllerScreen(mode, controllerPrefs::toggle, router::handle)
             }
         }
         // Whenever an external screen appears, put Arcis Home on it.
@@ -95,49 +94,24 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * In trackpad mode the controller is landscape and NOT focusable: touching the phone
-     * then doesn't steal input focus from the external screen, so Back and typed keys
-     * reach the app shown there.
+     * While controlling, the orientation is locked to the chosen mode (no auto-rotation) and the
+     * window is NOT focusable: touching the phone then doesn't steal input focus from the
+     * external screen, so Back reaches the app shown there, and a text field selected there
+     * opens the phone's own keyboard on the phone (Android's IME fallback display).
      */
-    private fun setTrackpadWindow(trackpad: Boolean) {
-        requestedOrientation = if (trackpad) {
-            ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-        } else {
-            ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+    private fun setControllerWindow(trackpad: Boolean, mode: ControllerMode) {
+        requestedOrientation = when {
+            !trackpad -> ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            mode == ControllerMode.UPRIGHT -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            else -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         }
-        if (trackpad) {
-            window.addFlags(WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE)
-        } else {
-            window.clearFlags(WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE)
-        }
+        // ALT_FOCUSABLE_IM keeps the keyboard layered above this non-focusable window.
+        val flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM
+        if (trackpad) window.addFlags(flags) else window.clearFlags(flags)
     }
 
     private fun openAccessibilitySettings() {
         startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-    }
-}
-
-@Composable
-private fun Controller(onGesture: (Gesture) -> Unit) {
-    var last by remember { mutableStateOf("") }
-    LaunchedEffect(last) {
-        if (last.isNotEmpty()) {
-            delay(1200)
-            last = ""
-        }
-    }
-    Box(Modifier.fillMaxSize()) {
-        AndroidView(
-            modifier = Modifier.fillMaxSize(),
-            factory = { ctx ->
-                TrackpadView(ctx, rightEdgeScroll = true) { g ->
-                    if (g !is Gesture.PointerMove && g !is Gesture.Scroll) last = g.toString()
-                    onGesture(g)
-                }
-            },
-        )
-        // Faint feedback label (top-left), for sighted checks only.
-        Text(last, color = Color(0xFF3A3F4A), fontSize = 12.sp, modifier = Modifier.padding(16.dp))
     }
 }
 
