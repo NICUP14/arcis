@@ -11,6 +11,7 @@ import androidx.annotation.RequiresApi
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import android.view.Display
 import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
@@ -89,6 +90,7 @@ class ArcisAccessibilityService : AccessibilityService() {
             event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
         ) {
             updateForegroundPackage()
+            updateKeyboardOnPhone()
         }
         if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) noteActivityEvent(event)
     }
@@ -185,6 +187,22 @@ class ArcisAccessibilityService : AccessibilityService() {
     fun scroll(dx: Float, dy: Float) = injector?.scroll(x, y, -dx, -dy)
 
     fun back() = performGlobalAction(GLOBAL_ACTION_BACK)
+
+    /**
+     * Opens the phone keyboard for the text field selected on the external screen (a tap on
+     * it). False if no field is selected there.
+     */
+    fun showKeyboardForField(): Boolean =
+        focusedField()?.node?.performAction(AccessibilityNodeInfo.ACTION_CLICK) ?: false
+
+    /** Closes the phone keyboard of an app on the external screen: Back reaches the keyboard first. */
+    fun hideKeyboard() = back()
+
+    private fun updateKeyboardOnPhone() {
+        val shown = windowsOnAllDisplays.get(Display.DEFAULT_DISPLAY).orEmpty()
+            .any { it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD }
+        _keyboardOnPhone.value = shown
+    }
 
     fun setCursorVisible(visible: Boolean) = cursor?.setVisible(visible)
 
@@ -396,6 +414,10 @@ class ArcisAccessibilityService : AccessibilityService() {
 
         private val _foregroundPackage = MutableStateFlow<String?>(null)
         private val _foregroundActivity = MutableStateFlow<ComponentName?>(null)
+        private val _keyboardOnPhone = MutableStateFlow(false)
+
+        /** True while a keyboard is showing on the phone's screen (for any app or field). */
+        val keyboardOnPhone: StateFlow<Boolean> = _keyboardOnPhone.asStateFlow()
 
         /**
          * The last activity seen coming to the front on the screen (null for Arcis's own

@@ -4,6 +4,9 @@ import app.arcis.core.hid.HidKeys
 import app.arcis.core.input.Button
 import app.arcis.core.input.Gesture
 import app.arcis.core.input.ShapeCommand
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlin.math.roundToInt
 
 /**
@@ -12,9 +15,16 @@ import kotlin.math.roundToInt
  */
 class BluetoothTarget(private val hid: HidPeripheral) {
 
+    private val _active = MutableStateFlow(false)
+
     /** True while the Bluetooth screen is in front and a device is connected. */
-    @Volatile
-    var active = false
+    val activeState: StateFlow<Boolean> = _active.asStateFlow()
+
+    var active: Boolean
+        get() = _active.value
+        set(value) {
+            _active.value = value
+        }
 
     private var scrollRemainder = 0f
     private var moveRemainderX = 0f

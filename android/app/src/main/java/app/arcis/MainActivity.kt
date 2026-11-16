@@ -24,6 +24,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -78,10 +81,16 @@ class MainActivity : ComponentActivity() {
             val screen by displays.screen.collectAsState()
             val a11y by ArcisAccessibilityService.connected.collectAsState()
             val mode by controllerPrefs.mode.collectAsState()
-            val remoteTyping by ArcisApp.instance.remoteTyping.collectAsState()
+            val remoteTarget by ArcisApp.instance.remoteTyping.collectAsState()
+            val keyboardOnPhone by ArcisAccessibilityService.keyboardOnPhone.collectAsState()
+            var relayRequested by remember { mutableStateOf(false) }
+            LaunchedEffect(remoteTarget) { if (remoteTarget == null) relayRequested = false }
+            val relayOpen = relayRequested && remoteTarget != null
             val trackpad = screen != null && a11y
-            // Typing for a computer needs this window to take the keyboard (upright only).
-            val focusable = !trackpad || (mode == ControllerMode.UPRIGHT && remoteTyping)
+            // Typing for a computer / Bluetooth device needs this window to take the keyboard.
+            // Focusable as soon as such a device is in front: the tap on the keyboard button
+            // then moves input focus from the glasses to the phone, so the keyboard can open.
+            val focusable = !trackpad || remoteTarget != null
             LaunchedEffect(trackpad, mode, focusable) { setControllerWindow(trackpad, mode, focusable) }
             LaunchedEffect(trackpad) { if (trackpad) askForMicrophone() }
             when {
@@ -89,13 +98,20 @@ class MainActivity : ComponentActivity() {
                 !a11y -> AccessibilitySetup { openAccessibilitySettings() }
                 else -> ControllerScreen(
                     mode = mode,
-                    remoteTyping = remoteTyping,
-                    onRemoteText = { edit ->
-                        val hosts = ArcisApp.instance.hosts
-                        repeat(edit.backspaces) { hosts.key("Backspace") }
-                        if (edit.insert.isNotEmpty()) hosts.text(edit.insert)
+                    remoteTarget = remoteTarget,
+                    relayOpen = relayOpen,
+                    keyboardShowing = keyboardOnPhone,
+                    onKeyboard = {
+                        val svc = ArcisAccessibilityService.instance
+                        when {
+                            remoteTarget != null -> relayRequested = !relayRequested
+                            keyboardOnPhone -> svc?.hideKeyboard()
+                            svc?.showKeyboardForField() != true ->
+                                svc?.uiOverlay?.flash("Select a text field on the screen first")
+                        }
                     },
-                    onRemoteEnter = { ArcisApp.instance.hosts.key("Enter") },
+                    onRemoteText = ArcisApp.instance::typeRemote,
+                    onRemoteEnter = ArcisApp.instance::enterRemote,
                     onToggleMode = controllerPrefs::toggle,
                     onDictationStart = ArcisApp.instance.voice::startDictation,
                     onDictationStop = ArcisApp.instance.voice::stopDictation,

@@ -62,7 +62,7 @@ import kotlinx.coroutines.delay
 /**
  * Bluetooth mouse + keyboard on the external screen: pick a paired device, then the phone
  * controls it. While "controlling", trackpad gestures go to the device (the glasses cursor
- * hides) and a relay text field turns phone typing / dictation into keystrokes.
+ * hides); the phone's keyboard button and dictation type on it as keystrokes.
  */
 @SuppressLint("MissingPermission")
 class BluetoothActivity : ComponentActivity() {
@@ -186,20 +186,10 @@ class BluetoothActivity : ComponentActivity() {
 
     @Composable
     private fun Controlling(device: BluetoothDevice) {
-        var relay by remember { mutableStateOf("") }
-        val focus = remember { FocusRequester() }
-        val keyboard = LocalSoftwareKeyboardController.current
-        val mode by app.controllerPrefs.mode.collectAsState()
-        LaunchedEffect(mode) {
-            delay(200)
-            focus.requestFocus()
-            // Upright: phone keyboard open. Landscape: keep the trackpad clear; dictate instead.
-            if (mode == ControllerMode.UPRIGHT) keyboard?.show() else keyboard?.hide()
-        }
         Text("Controlling ${device.name ?: device.address}", color = GlassesColors.Accent, fontSize = 22.sp)
         Spacer(Modifier.height(10.dp))
         Text(
-            "The trackpad moves its pointer. Type on your phone (upright) or hold the mic button to speak.",
+            "The trackpad moves its pointer. Type with the keyboard button on the phone, or hold the mic button to speak.",
             color = GlassesColors.Dim,
             fontSize = 16.sp,
         )
@@ -208,28 +198,6 @@ class BluetoothActivity : ComponentActivity() {
             "To leave: swipe up from the bottom edge of the trackpad.",
             color = GlassesColors.Text,
             fontSize = 16.sp,
-        )
-        Spacer(Modifier.height(24.dp))
-        BasicTextField(
-            value = relay,
-            onValueChange = { new ->
-                val edit = TextEdit.between(relay, new)
-                if (edit.backspaces > 0) app.hid.backspace(edit.backspaces)
-                if (edit.insert.isNotEmpty()) app.hid.type(edit.insert)
-                // Keep the relay short; what matters is what was sent.
-                relay = if (new.length > 80 && new.endsWith(" ")) "" else new
-            },
-            singleLine = true,
-            textStyle = TextStyle(color = GlassesColors.Text, fontSize = 20.sp),
-            cursorBrush = SolidColor(GlassesColors.Accent),
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-            keyboardActions = KeyboardActions(onSend = { app.hid.key(HidKeys.Stroke(HidKeys.ENTER)) }),
-            modifier = Modifier
-                .fillMaxWidth(0.6f)
-                .focusRequester(focus)
-                .background(GlassesColors.Card, RoundedCornerShape(16.dp))
-                .border(1.dp, GlassesColors.CardBorder, RoundedCornerShape(16.dp))
-                .padding(horizontal = 20.dp, vertical = 14.dp),
         )
     }
 

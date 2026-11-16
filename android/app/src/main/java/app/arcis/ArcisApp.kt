@@ -12,13 +12,18 @@ import app.arcis.a11y.ArcisAccessibilityService
 import app.arcis.host.HostConnection
 import app.arcis.host.HostManager
 import app.arcis.host.HostTarget
+import app.arcis.core.hid.HidKeys
+import app.arcis.core.text.TextEdit
+import app.arcis.input.RemoteTarget
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import app.arcis.glasses.GlassesLauncher
 import app.arcis.input.PushToTalk
@@ -53,10 +58,15 @@ class ArcisApp : Application() {
         private set
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-    private val _remoteTyping = MutableStateFlow(false)
+    private val _computerControl = MutableStateFlow(false)
 
-    /** True while typed text should go to a computer (Moonlight in front, bridge connected). */
-    val remoteTyping: StateFlow<Boolean> = _remoteTyping.asStateFlow()
+    /**
+     * Where the phone's typing field sends text: the computer (Moonlight's stream in front,
+     * bridge connected) or the Bluetooth device being controlled. Null = an app on the
+     * glasses, which gets the phone keyboard directly.
+     */
+    lateinit var remoteTyping: StateFlow<RemoteTarget?>
+        private set
 
     override fun onCreate() {
         super.onCreate()
@@ -69,6 +79,13 @@ class ArcisApp : Application() {
         bluetoothTarget = BluetoothTarget(hid)
         hosts = HostManager(this)
         hostTarget = HostTarget(hosts)
+        remoteTyping = combine(_computerControl, bluetoothTarget.activeState) { computer, bluetooth ->
+            when {
+                computer -> RemoteTarget.COMPUTER
+                bluetooth -> RemoteTarget.BLUETOOTH
+                else -> null
+            }
+        }.stateIn(scope, SharingStarted.Eagerly, null)
         watchHostTarget()
         watchHostProblems()
         switcher = AppSwitcher(this).also { it.start() }
@@ -89,12 +106,36 @@ class ArcisApp : Application() {
             }.collect { (stream, connected) ->
                 hostTarget.streamInFront = stream
                 val active = stream && connected
-                if (_remoteTyping.value != active) {
+                if (_computerControl.value != active) {
                     Log.d("ArcisHost", "computer control ${if (active) "on" else "off"} (stream=$stream, connected=$connected)")
-                    _remoteTyping.value = active
+                    _computerControl.value = active
                     ArcisAccessibilityService.instance?.setCursorVisible(!active)
                 }
             }
+        }
+    }
+
+    /** Sends a change made in the phone's typing field to the [remoteTyping] target. */
+    fun typeRemote(edit: TextEdit) {
+        when (remoteTyping.value) {
+            RemoteTarget.COMPUTER -> {
+                repeat(edit.backspaces) { hosts.key("Backspace") }
+                if (edit.insert.isNotEmpty()) hosts.text(edit.insert)
+            }
+            RemoteTarget.BLUETOOTH -> {
+                hid.backspace(edit.backspaces)
+                if (edit.insert.isNotEmpty()) hid.type(edit.insert)
+            }
+            null -> Unit
+        }
+    }
+
+    /** Enter / Send on the phone keyboard, for the [remoteTyping] target. */
+    fun enterRemote() {
+        when (remoteTyping.value) {
+            RemoteTarget.COMPUTER -> hosts.key("Enter")
+            RemoteTarget.BLUETOOTH -> hid.key(HidKeys.Stroke(HidKeys.ENTER))
+            null -> Unit
         }
     }
 
