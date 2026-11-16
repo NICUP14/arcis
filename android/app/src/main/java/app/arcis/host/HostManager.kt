@@ -55,27 +55,31 @@ class HostManager(context: Context) {
     @Volatile
     private var conn: BridgeConnection? = null
     private var pingJob: Job? = null
-    private var discovering = false
+    /** One listener per discovery run: NsdManager keeps a stopped listener busy until it reports back. */
+    private var discoveryListener: NsdManager.DiscoveryListener? = null
 
     // ------------------------------------------------------------------ discovery
 
     fun startDiscovery() {
-        if (discovering) return
-        discovering = true
-        runCatching { nsd.discoverServices(SERVICE, NsdManager.PROTOCOL_DNS_SD, discoveryListener) }
-            .onFailure { discovering = false; Log.w(TAG, "discovery failed", it) }
+        if (discoveryListener != null) return
+        val listener = newDiscoveryListener()
+        discoveryListener = listener
+        runCatching { nsd.discoverServices(SERVICE, NsdManager.PROTOCOL_DNS_SD, listener) }
+            .onFailure { discoveryListener = null; Log.w(TAG, "discovery failed", it) }
     }
 
     fun stopDiscovery() {
-        if (!discovering) return
-        discovering = false
-        runCatching { nsd.stopServiceDiscovery(discoveryListener) }
+        val listener = discoveryListener ?: return
+        discoveryListener = null
+        runCatching { nsd.stopServiceDiscovery(listener) }
     }
 
-    private val discoveryListener = object : NsdManager.DiscoveryListener {
+    private fun newDiscoveryListener() = object : NsdManager.DiscoveryListener {
         override fun onDiscoveryStarted(serviceType: String) = Unit
         override fun onDiscoveryStopped(serviceType: String) = Unit
-        override fun onStartDiscoveryFailed(serviceType: String, errorCode: Int) { discovering = false }
+        override fun onStartDiscoveryFailed(serviceType: String, errorCode: Int) {
+            if (discoveryListener === this) discoveryListener = null
+        }
         override fun onStopDiscoveryFailed(serviceType: String, errorCode: Int) = Unit
         override fun onServiceLost(info: NsdServiceInfo) {
             _found.value = _found.value.filterNot { it.name == info.serviceName }
