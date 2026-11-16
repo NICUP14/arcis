@@ -351,13 +351,14 @@ class TrackpadGestureEngine(
         val dt = (timeMs - lastTime).coerceAtLeast(1)
         lastX = p.x; lastY = p.y; lastTime = timeMs
         if (dx == 0f && dy == 0f) return
-        val gain = pointerGain(hypot(dx, dy) / dt)
-        sink(Gesture.PointerMove(dx * gain, dy * gain))
+        val d = config.density
+        val gain = pointerGain(hypot(dx, dy) / d / dt)
+        sink(Gesture.PointerMove(dx / d * gain, dy / d * gain))
     }
 
     /** Linear acceleration: faster finger = proportionally larger pointer travel. */
-    internal fun pointerGain(speedPxPerMs: Float): Float =
-        min(config.pointerSensitivity * (1f + config.pointerAcceleration * speedPxPerMs), config.maxPointerGain)
+    internal fun pointerGain(speedDpPerMs: Float): Float =
+        min(config.pointerSensitivity * (1f + config.pointerAcceleration * speedDpPerMs), config.maxPointerGain)
 
     private fun emitScroll(dx: Float, dy: Float) {
         if (dx == 0f && dy == 0f) return

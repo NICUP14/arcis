@@ -89,6 +89,26 @@ class TrackpadGestureEngineTest {
     }
 
     @Test
+    fun pointerSpeedIsTheSameOnEveryScreenDensity() {
+        // The same finger stroke (60 dp right in 3 steps of 16 ms) on a 1x and a 3x screen.
+        fun travel(density: Float): Double {
+            val moves = mutableListOf<Gesture>()
+            val e = TrackpadGestureEngine(2000f * density, 1000f * density, GestureConfig(density = density)) { moves += it }
+            var time = 0L
+            fun at(x: Float, action: TouchAction) =
+                e.onTouch(TouchEvent(action, listOf(TouchPoint(0, x * density, 500f * density)), 0, time))
+            at(500f, TouchAction.DOWN)
+            for (x in listOf(520f, 540f, 560f)) { time += 16; at(x, TouchAction.MOVE) }
+            time += 16; at(560f, TouchAction.UP)
+            return moves.filterIsInstance<Gesture.PointerMove>().sumOf { it.dx.toDouble() }
+        }
+        val at1x = travel(1f)
+        val at3x = travel(3f)
+        assertTrue(at1x > 0.0)
+        assertEquals(at1x, at3x, at1x * 0.01)
+    }
+
+    @Test
     fun fasterFingerGetsMoreGain() {
         assertTrue(engine.pointerGain(3f) > engine.pointerGain(0.2f))
         assertTrue(engine.pointerGain(1000f) <= engine.config.maxPointerGain)

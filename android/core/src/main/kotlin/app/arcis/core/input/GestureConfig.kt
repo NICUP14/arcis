@@ -27,11 +27,14 @@ data class GestureConfig(
     val recentsStep: Float = 140f,
     /** Further upward travel while in Recents that closes the selected card on release. */
     val recentsCloseDistance: Float = 220f,
-    /** Pointer speed multiplier. */
-    val pointerSensitivity: Float = 1.6f,
-    /** Extra gain per px/ms of finger speed (pointer acceleration). */
-    val pointerAcceleration: Float = 0.9f,
-    val maxPointerGain: Float = 6f,
+    /** Screen density (surface pixels per dp); pointer speed is measured in dp so it feels the same on every phone. */
+    val density: Float = 1f,
+    /** Pointer pixels per dp of finger travel when moving slowly. */
+    val pointerSensitivity: Float = 1.5f,
+    /** Extra gain per dp/ms of finger speed (pointer acceleration). */
+    val pointerAcceleration: Float = 1.5f,
+    /** Pointer pixels per dp of finger travel at most (fast flicks). */
+    val maxPointerGain: Float = 8f,
     val scrollSensitivity: Float = 1.2f,
     /** true = content follows the fingers (phone style). */
     val naturalScroll: Boolean = true,

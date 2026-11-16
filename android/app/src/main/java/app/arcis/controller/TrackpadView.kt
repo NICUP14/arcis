@@ -54,6 +54,7 @@ class TrackpadView(
     }
 
     private fun config() = GestureConfig(
+        density = resources.displayMetrics.density,
         touchSlop = dp(8f),
         bottomEdge = dp(44f),
         rightEdge = if (rightEdgeScroll) dp(44f) else 0f,
