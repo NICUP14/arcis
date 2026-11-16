@@ -14,6 +14,7 @@ import app.arcis.apps.PhoneApp
 import app.arcis.a11y.ArcisAccessibilityService
 import app.arcis.host.FoundHost
 import app.arcis.host.HostTarget
+import app.arcis.host.Moonlight
 import app.arcis.host.SavedHost
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -79,7 +80,11 @@ class GlassesHomeActivity : ComponentActivity() {
             ArcisAccessibilityService.instance?.uiOverlay?.flash("Install Moonlight to see ${host.name}'s screen")
             return
         }
-        app.phoneApps.open(this, moonlight, display?.displayId ?: Display.DEFAULT_DISPLAY)
+        val displayId = display?.displayId ?: Display.DEFAULT_DISPLAY
+        // Straight into the computer's desktop; Moonlight's own start screen if that's refused.
+        if (!app.phoneApps.launch(this, Moonlight.desktopIntent(moonlight.packageName, host.name), displayId)) {
+            app.phoneApps.open(this, moonlight, displayId)
+        }
     }
 
     /** Opens a phone app full screen on this same display. */

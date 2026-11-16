@@ -1,24 +1,26 @@
 package app.arcis.host
 
+import android.content.ComponentName
 import app.arcis.core.input.Button
 import app.arcis.core.input.Gesture
 import app.arcis.core.input.ShapeCommand
 
 /**
- * Sends trackpad gestures to the connected computer (through its Arcis Bridge) while the
- * Moonlight app is in front on the glasses.
+ * Sends trackpad gestures to the connected computer (through its Arcis Bridge) while
+ * Moonlight's stream is in front on the glasses. In Moonlight's own menus (computer and app
+ * lists) the trackpad drives them like any phone app.
  */
 class HostTarget(private val hosts: HostManager) {
 
     /** Set from the foreground app on the external screen. */
     @Volatile
-    var moonlightInFront = false
+    var streamInFront = false
 
     /** Debug builds only: act as if Moonlight were in front (testing without Moonlight). */
     @Volatile
     var forceActiveForTesting = false
 
-    val active: Boolean get() = (moonlightInFront || forceActiveForTesting) && hosts.isConnected
+    val active: Boolean get() = (streamInFront || forceActiveForTesting) && hosts.isConnected
 
     fun handle(g: Gesture): Boolean {
         if (!active) return false
@@ -53,5 +55,12 @@ class HostTarget(private val hosts: HostManager) {
 
         /** Moonlight and its forks (Artemis etc.) share this package prefix. */
         fun isMoonlight(pkg: String?): Boolean = pkg?.startsWith("com.limelight") == true
+
+        /** Moonlight's streaming screen; its forks keep the class name. */
+        private const val STREAM_ACTIVITY = "com.limelight.Game"
+
+        /** True while Moonlight's stream (not its menus) is in front. */
+        fun isMoonlightStream(pkg: String?, activity: ComponentName?): Boolean =
+            activity != null && isMoonlight(pkg) && activity.packageName == pkg && activity.className == STREAM_ACTIVITY
     }
 }

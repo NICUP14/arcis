@@ -12,13 +12,19 @@ Picture and sound come from **Moonlight** (phone) + **Sunshine** or **Apollo**
    - In Arcis Home on the glasses, open **Computers**: your computer appears
      automatically on the same network, or use **Add computer** with its address.
      Enter the bridge PIN.
-3. **Use it**: click the computer's tile. Arcis connects the bridge and opens
-   Moonlight on the glasses. While Moonlight is in front:
+3. **Use it**: click the computer's tile. Arcis connects the bridge and starts (or
+   resumes) the computer's **Desktop** stream in Moonlight on the glasses, skipping
+   Moonlight's menus. While the stream is in front:
    - the trackpad, clicks, scrolling and drawn shortcuts control the computer
      (Ctrl, or Cmd on a Mac);
    - upright mode: type on the phone keyboard; landscape: hold volume up to dictate;
    - the computer shows its own pointer, so Arcis hides the glasses cursor.
-   Switch away like any app (bottom edge); the bridge stays connected.
+   Switch away like any app (bottom edge); the bridge stays connected. In Moonlight's
+   own menus (computer and app lists) the trackpad works them like any phone app.
+
+   Moonlight finds the computer by name: if Sunshine/Apollo uses a different name than
+   the computer (Sunshine → Configuration → Sunshine Name), Moonlight reports that it
+   can't find it. Use the same name, or open Moonlight from the apps grid instead.
 
 ## Tips
 

@@ -80,16 +80,20 @@ class ArcisApp : Application() {
         hardwareKeys = HardwareKeys(onHome = ::showHomeOnScreen, voice = voice, pushToTalk = pushToTalk)
     }
 
-    /** Moonlight in front + bridge connected = control the computer; its own cursor is in the video. */
+    /** Moonlight's stream in front + bridge connected = control the computer; its own cursor is in the video. */
     private fun watchHostTarget() {
         scope.launch {
-            combine(ArcisAccessibilityService.foregroundPackage, hosts.connection) { pkg, conn ->
-                HostTarget.isMoonlight(pkg) to (conn is HostConnection.Connected)
-            }.collect { (moonlight, connected) ->
-                hostTarget.moonlightInFront = moonlight
-                val active = moonlight && connected
+            combine(
+                ArcisAccessibilityService.foregroundPackage,
+                ArcisAccessibilityService.foregroundActivity,
+                hosts.connection,
+            ) { pkg, activity, conn ->
+                HostTarget.isMoonlightStream(pkg, activity) to (conn is HostConnection.Connected)
+            }.collect { (stream, connected) ->
+                hostTarget.streamInFront = stream
+                val active = stream && connected
                 if (_remoteTyping.value != active) {
-                    Log.d("ArcisHost", "computer control ${if (active) "on" else "off"} (moonlight=$moonlight, connected=$connected)")
+                    Log.d("ArcisHost", "computer control ${if (active) "on" else "off"} (stream=$stream, connected=$connected)")
                     _remoteTyping.value = active
                     ArcisAccessibilityService.instance?.setCursorVisible(!active)
                 }

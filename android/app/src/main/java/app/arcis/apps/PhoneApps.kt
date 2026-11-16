@@ -67,12 +67,19 @@ class PhoneApps(private val context: Context) {
         val intent = Intent(Intent.ACTION_MAIN)
             .addCategory(Intent.CATEGORY_LAUNCHER)
             .setComponent(app.component)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
+            .addFlags(Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
+        return launch(caller, intent, displayId)
+    }
+
+    /** Starts [intent] (an activity of an installed app) full screen on [displayId]. */
+    fun launch(caller: Context, intent: Intent, displayId: Int): Boolean {
+        val pkg = intent.component?.packageName ?: intent.`package` ?: return false
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         val options = ActivityOptions.makeBasic().setLaunchDisplayId(displayId)
         val ok = runCatching { caller.startActivity(intent, options.toBundle()) }
-            .onFailure { Log.w(TAG, "cannot open ${app.packageName} on display $displayId", it) }
+            .onFailure { Log.w(TAG, "cannot open $pkg on display $displayId", it) }
             .isSuccess
-        if (ok) onOpened?.invoke(app.packageName)
+        if (ok) onOpened?.invoke(pkg)
         return ok
     }
 
