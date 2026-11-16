@@ -97,6 +97,8 @@ class MainActivity : ComponentActivity() {
                     },
                     onRemoteEnter = { ArcisApp.instance.hosts.key("Enter") },
                     onToggleMode = controllerPrefs::toggle,
+                    onDictationStart = ArcisApp.instance.voice::startDictation,
+                    onDictationStop = ArcisApp.instance.voice::stopDictation,
                     onGesture = router::handle,
                 )
             }

@@ -4,13 +4,21 @@ import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.navigationBarsIgnoringVisibility
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -21,11 +29,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import app.arcis.R
 import app.arcis.core.input.Gesture
 import app.arcis.core.text.TextEdit
 import androidx.compose.foundation.text.BasicTextField
@@ -43,7 +54,8 @@ private val Hint = Color(0xFF3A3F4A)
 private val ButtonBorder = Color(0xFF2E323C)
 
 /**
- * The phone side. A fixed corner button (top-left, easy to find by feel) switches mode.
+ * The phone side. Two fixed corner buttons, easy to find by feel: top-left switches mode,
+ * top-right is hold-to-talk speech-to-text (same as holding volume up).
  * - Landscape: the whole screen is the trackpad.
  * - Upright: trackpad on the top half; the bottom half is where the phone's own keyboard
  *   appears when a text field is selected on the external screen.
@@ -55,6 +67,8 @@ fun ControllerScreen(
     onRemoteText: (TextEdit) -> Unit,
     onRemoteEnter: () -> Unit,
     onToggleMode: () -> Unit,
+    onDictationStart: () -> Unit,
+    onDictationStop: () -> Unit,
     onGesture: (Gesture) -> Unit,
 ) {
     var last by remember { mutableStateOf("") }
@@ -84,6 +98,7 @@ fun ControllerScreen(
         // Faint feedback label, for sighted checks only.
         Text(last, color = Hint, fontSize = 12.sp, modifier = Modifier.align(Alignment.TopCenter).padding(16.dp))
         ModeButton(mode, onToggleMode, Modifier.align(Alignment.TopStart))
+        MicButton(onDictationStart, onDictationStop, Modifier.align(Alignment.TopEnd))
     }
 }
 
@@ -162,6 +177,42 @@ private fun ModeButton(mode: ControllerMode, onToggle: () -> Unit, modifier: Mod
             if (mode == ControllerMode.LANDSCAPE) "⌨" else "▭",
             color = Color(0xFF6B7180),
             fontSize = 22.sp,
+        )
+    }
+}
+
+/** Hold to speak; release to type what was said (into the app or computer on the screen). */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun MicButton(onStart: () -> Unit, onStop: () -> Unit, modifier: Modifier) {
+    val view = LocalView.current
+    var listening by remember { mutableStateOf(false) }
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = modifier
+            // Keep clear of the (hidden) navigation bar, which sits on the right in landscape.
+            .windowInsetsPadding(WindowInsets.navigationBarsIgnoringVisibility.only(WindowInsetsSides.End))
+            .padding(12.dp)
+            .size(56.dp)
+            .background(if (listening) Color(0xFF16324F) else Color.Transparent, RoundedCornerShape(16.dp))
+            .border(1.dp, if (listening) Color(0xFF6EA8FF) else ButtonBorder, RoundedCornerShape(16.dp))
+            .pointerInput(Unit) {
+                detectTapGestures(onPress = {
+                    view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
+                    listening = true
+                    onStart()
+                    tryAwaitRelease()
+                    listening = false
+                    onStop()
+                    view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                })
+            },
+    ) {
+        Icon(
+            painter = painterResource(R.drawable.ic_mic),
+            contentDescription = "Hold to speak",
+            tint = if (listening) Color(0xFF6EA8FF) else Color(0xFF6B7180),
+            modifier = Modifier.size(26.dp),
         )
     }
 }
