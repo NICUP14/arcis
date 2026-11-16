@@ -1,6 +1,7 @@
 package app.arcis.a11y
 
 import android.accessibilityservice.AccessibilityService
+import android.content.ComponentName
 import android.graphics.PointF
 import android.os.Build
 import android.os.Bundle
@@ -90,6 +91,7 @@ class ArcisAccessibilityService : AccessibilityService() {
         ) {
             updateForegroundPackage()
         }
+        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) noteActivityEvent(event)
     }
 
     override fun onInterrupt() = Unit
@@ -337,8 +339,30 @@ class ArcisAccessibilityService : AccessibilityService() {
         val top = windows
             .filter { it.type == AccessibilityWindowInfo.TYPE_APPLICATION }
             .maxByOrNull { it.layer }
-        val pkg = top?.root?.packageName?.toString()
-        if (pkg != null) _foregroundPackage.value = pkg
+        top?.root?.packageName?.toString()?.let(::setForeground)
+    }
+
+    /**
+     * Fallback for screens whose windows Android doesn't list for accessibility (overlay
+     * displays, and possibly some vendor displays): an activity coming to the front still
+     * sends a window-state event tagged with its display. Only real activities count, so
+     * dialogs, pop-ups and Arcis's own overlays don't change the target; Arcis's own
+     * screens report themselves through [noteArcisScreenInFront].
+     */
+    private fun noteActivityEvent(event: AccessibilityEvent) {
+        val displayId = screen?.displayId ?: return
+        if (event.displayId != displayId || windowsOnAllDisplays.contains(displayId)) return
+        val pkg = event.packageName?.toString() ?: return
+        val cls = event.className?.toString() ?: return
+        if (pkg == packageName) return
+        val isActivity = runCatching { packageManager.getActivityInfo(ComponentName(pkg, cls), 0) }.isSuccess
+        if (isActivity) setForeground(pkg)
+    }
+
+    private fun setForeground(pkg: String) {
+        if (pkg == _foregroundPackage.value) return
+        Log.d(TAG, "in front on the screen: $pkg")
+        _foregroundPackage.value = pkg
     }
 
     companion object {
@@ -356,6 +380,12 @@ class ArcisAccessibilityService : AccessibilityService() {
         val connected: StateFlow<Boolean> = _connected.asStateFlow()
 
         private val _foregroundPackage = MutableStateFlow<String?>(null)
+
+        /** Called by Arcis's own activities on the external screen when they come to the front. */
+        fun noteArcisScreenInFront(displayId: Int) {
+            val service = instance ?: return
+            if (service.screen?.displayId == displayId) service.setForeground(service.packageName)
+        }
 
         /** Package of the app currently in front on the external screen. */
         val foregroundPackage: StateFlow<String?> = _foregroundPackage.asStateFlow()

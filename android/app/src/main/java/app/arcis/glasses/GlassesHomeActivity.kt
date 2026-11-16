@@ -62,6 +62,7 @@ class GlassesHomeActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         ArcisApp.instance.hosts.startDiscovery()
+        display?.displayId?.let(ArcisAccessibilityService::noteArcisScreenInFront)
     }
 
     override fun onPause() {

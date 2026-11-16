@@ -19,3 +19,14 @@ Picture and sound come from **Moonlight** (phone) + **Sunshine** or **Apollo**
    - upright mode: type on the phone keyboard; landscape: hold volume up to dictate;
    - the computer shows its own pointer, so Arcis hides the glasses cursor.
    Switch away like any app (bottom edge); the bridge stays connected.
+
+## Tips
+
+- **Sharper picture**: Moonlight streams at 720p by default. For 1080p glasses such as
+  the XREAL 1S, set Moonlight → Settings → Video resolution to 1080p.
+- **Samsung phones**: Game Booster treats Moonlight as a game and adds a "touch lock"
+  button to the navigation bar. If the phone stops reacting, drag the lock icon to
+  unlock, or turn Game Booster off for Moonlight (Game Booster settings → Block during
+  game / app list).
+- **Pairing Moonlight**: Moonlight shows a 4-digit PIN; enter it in Sunshine's web page
+  (https://localhost:47990, PIN tab).

@@ -19,6 +19,21 @@ there. The debug simulated screen is a public virtual display, which accessibili
 Third-party apps cannot be launched onto it (untrusted virtual display); test phone apps on
 a real screen or on the overlay display (launch only).
 
+### Moonlight on the overlay display
+
+Moonlight (and the computer controls) can be tested on the overlay display:
+
+```sh
+adb shell settings put global overlay_display_devices 1920x1080/320
+adb shell input -d <overlay id> tap <x> <y>   # taps on that display (find the id with dumpsys display)
+adb shell input -d 0 swipe ...                # trackpad swipes on the phone
+```
+
+Accessibility lists no windows for overlay displays, so Arcis follows activity events to
+see what's in front there. The overlay display is drawn as a floating window on the phone
+that takes touches starting inside it (it moves/resizes): start trackpad swipes outside
+it, and always pass `-d 0`, otherwise `input` may target the focused overlay display.
+
 ## Accessibility service during automated tests
 
 Android suspends all accessibility services while a UiAutomation session is connected
@@ -30,4 +45,6 @@ stops reacting during automation, stop the automation helper; the service rebind
 - The glasses / a monitor over USB-C DisplayPort (display routing, refresh rate)
 - Netflix / DRM playback quality
 - Bluetooth HID pairing
-- Moonlight + Sunshine streaming, Tailscale remote use
+- Tailscale remote use
+- Moonlight + Sunshine on the real glasses (tested on the overlay display: pairing,
+  streaming, trackpad → bridge while Moonlight is in front)

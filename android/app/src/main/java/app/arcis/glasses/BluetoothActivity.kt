@@ -88,6 +88,7 @@ class BluetoothActivity : ComponentActivity() {
         resumed = true
         app.hid.start()
         app.switcher.noteBluetoothInFront(true)
+        display?.displayId?.let(ArcisAccessibilityService::noteArcisScreenInFront)
         updateActive(app.hid.state.value)
     }
 

@@ -1,6 +1,7 @@
 package app.arcis
 
 import android.app.Application
+import android.util.Log
 import app.arcis.apps.AppPrefs
 import app.arcis.apps.PhoneApps
 import app.arcis.bt.BluetoothTarget
@@ -88,6 +89,7 @@ class ArcisApp : Application() {
                 hostTarget.moonlightInFront = moonlight
                 val active = moonlight && connected
                 if (_remoteTyping.value != active) {
+                    Log.d("ArcisHost", "computer control ${if (active) "on" else "off"} (moonlight=$moonlight, connected=$connected)")
                     _remoteTyping.value = active
                     ArcisAccessibilityService.instance?.setCursorVisible(!active)
                 }
