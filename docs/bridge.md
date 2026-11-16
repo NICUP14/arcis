@@ -1,0 +1,49 @@
+# Arcis Bridge (host helper)
+
+The Arcis Bridge runs on the computer you want to control. It receives the
+trackpad, keyboard and dictation input from the Arcis app and performs it there.
+Video and sound come from **Moonlight** on the phone and **Sunshine/Apollo** on the
+computer; the bridge only handles controls.
+
+It is a single standalone file per system — no installer, no runtime.
+
+## Run
+
+| System | Build | Notes |
+|---|---|---|
+| Windows | `GOOS=windows GOARCH=amd64 go build -o arcis-bridge.exe ./cmd/arcis-bridge` | Allow it through the firewall when Windows asks (private networks). Run as administrator only if you need to control elevated windows (UAC prompts, admin apps). |
+| Linux | `GOOS=linux GOARCH=amd64 go build -o arcis-bridge ./cmd/arcis-bridge` | Needs write access to `/dev/uinput`, see below. Works on X11 and Wayland. |
+| macOS | `GOOS=darwin GOARCH=arm64 go build -o arcis-bridge ./cmd/arcis-bridge` | Grant **Accessibility** to the terminal / binary in System Settings › Privacy & Security. Untested so far. |
+
+All builds work with `CGO_ENABLED=0`.
+
+Start it and open **http://127.0.0.1:41991** on that computer: it shows the
+pairing PIN, its addresses and the paired phones. Options:
+
+```
+arcis-bridge -port 41990 -status-port 41991 -no-mdns -config <dir>
+```
+
+### Linux: allow /dev/uinput
+
+```sh
+echo 'KERNEL=="uinput", GROUP="input", MODE="0660", OPTIONS+="static_node=uinput"' | \
+  sudo tee /etc/udev/rules.d/60-arcis-uinput.rules
+sudo usermod -aG input "$USER"
+sudo modprobe uinput && sudo udevadm control --reload && sudo udevadm trigger
+# log out and back in
+```
+
+## Pair a phone
+
+1. Start the bridge; note the PIN on the status page.
+2. In Arcis on the phone, pick the computer (found automatically on the same
+   network) and enter the PIN. Pairing is remembered on both sides.
+
+## Security
+
+- TLS with certificate pinning and a per-phone secret token (see
+  [protocol.md](protocol.md)); unpaired connections can't send input.
+- The status page (with the PIN) listens on localhost only.
+- Paired phones are stored in the config directory (`devices.json`); delete it to
+  unpair everything.

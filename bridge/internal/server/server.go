@@ -1,0 +1,157 @@
+// Package server accepts phones over TLS, handles pairing and performs their input.
+package server
+
+import (
+	"crypto/tls"
+	"errors"
+	"fmt"
+	"log"
+	"math"
+	"net"
+	"runtime"
+	"sync"
+	"sync/atomic"
+	"time"
+
+	"github.com/NICUP14/arcis/bridge/internal/input"
+	"github.com/NICUP14/arcis/bridge/internal/pairing"
+	"github.com/NICUP14/arcis/bridge/internal/proto"
+)
+
+// Server is the bridge's network side.
+type Server struct {
+	Store    *pairing.Store
+	Input    input.Injector
+	Cert     tls.Certificate
+	HostName string
+	Log      *log.Logger
+
+	inputMu   sync.Mutex // input from several phones is serialized
+	connected atomic.Int32
+	lastPhone atomic.Value // string
+}
+
+// Connected is the number of phones currently connected.
+func (s *Server) Connected() int { return int(s.connected.Load()) }
+
+// LastPhone is the name of the most recently connected phone.
+func (s *Server) LastPhone() string {
+	v, _ := s.lastPhone.Load().(string)
+	return v
+}
+
+// Serve accepts connections on ln until it is closed.
+func (s *Server) Serve(ln net.Listener) error {
+	tl := tls.NewListener(ln, &tls.Config{
+		Certificates: []tls.Certificate{s.Cert},
+		MinVersion:   tls.VersionTLS12,
+	})
+	for {
+		c, err := tl.Accept()
+		if err != nil {
+			if errors.Is(err, net.ErrClosed) {
+				return nil
+			}
+			return err
+		}
+		go s.handle(c)
+	}
+}
+
+func (s *Server) logf(format string, args ...any) {
+	if s.Log != nil {
+		s.Log.Printf(format, args...)
+	}
+}
+
+func (s *Server) handle(c net.Conn) {
+	defer c.Close()
+	remote := c.RemoteAddr().String()
+	_ = c.SetReadDeadline(time.Now().Add(15 * time.Second))
+	r := proto.NewReader(c)
+	first, err := r.Read()
+	if err != nil {
+		s.logf("%s: %v", remote, err)
+		return
+	}
+	switch first.T {
+	case proto.TypePair:
+		token, err := s.Store.Pair(first.PIN, first.Name)
+		if err != nil {
+			s.logf("%s: pairing refused: %v", remote, err)
+			_ = proto.Write(c, proto.Message{T: proto.TypeError, Msg: "Wrong PIN"})
+			return
+		}
+		s.logf("paired %q from %s", first.Name, remote)
+		_ = proto.Write(c, proto.Message{T: proto.TypePaired, Token: token, Host: s.HostName})
+		return
+	case proto.TypeHello:
+		dev, ok := s.Store.Check(first.Token)
+		if !ok {
+			s.logf("%s: unknown device", remote)
+			_ = proto.Write(c, proto.Message{T: proto.TypeError, Msg: "Not paired with this computer"})
+			return
+		}
+		if err := proto.Write(c, proto.Message{
+			T: proto.TypeWelcome, Host: s.HostName, OS: runtime.GOOS, Version: proto.Version,
+		}); err != nil {
+			return
+		}
+		s.logf("%q connected from %s", dev.Name, remote)
+		s.connected.Add(1)
+		s.lastPhone.Store(dev.Name)
+		defer s.connected.Add(-1)
+		_ = c.SetReadDeadline(time.Time{})
+		s.session(c, r)
+		s.logf("%q disconnected", dev.Name)
+	default:
+		_ = proto.Write(c, proto.Message{T: proto.TypeError, Msg: "say hello first"})
+	}
+}
+
+// session performs messages from an authenticated phone until it disconnects.
+func (s *Server) session(c net.Conn, r *proto.Reader) {
+	var remX, remY float64 // sub-pixel pointer movement
+	for {
+		m, err := r.Read()
+		if err != nil {
+			return
+		}
+		if m.T == proto.TypePing {
+			_ = proto.Write(c, proto.Message{T: proto.TypePong, Time: m.Time})
+			continue
+		}
+		if err := s.perform(m, &remX, &remY); err != nil {
+			s.logf("%s: %v", m.T, err)
+		}
+	}
+}
+
+func (s *Server) perform(m proto.Message, remX, remY *float64) error {
+	if s.Input == nil {
+		return errors.New("no input on this system")
+	}
+	s.inputMu.Lock()
+	defer s.inputMu.Unlock()
+	switch m.T {
+	case proto.TypeMove:
+		*remX += m.DX
+		*remY += m.DY
+		dx, dy := math.Trunc(*remX), math.Trunc(*remY)
+		*remX -= dx
+		*remY -= dy
+		return s.Input.Move(int(dx), int(dy))
+	case proto.TypeButton:
+		return s.Input.Button(m.Button, m.Down)
+	case proto.TypeClick:
+		return input.Click(s.Input, m.Button)
+	case proto.TypeScroll:
+		return s.Input.Scroll(m.DX, m.DY)
+	case proto.TypeKey:
+		return s.Input.Key(m.Key, m.Mods)
+	case proto.TypeText:
+		return s.Input.Text(m.Text)
+	default:
+		return fmt.Errorf("unknown message type %q", m.T)
+	}
+}
