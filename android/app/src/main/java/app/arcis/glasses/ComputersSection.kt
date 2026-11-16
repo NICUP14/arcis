@@ -40,6 +40,7 @@ import app.arcis.host.FoundHost
 import app.arcis.host.HostConnection
 import app.arcis.host.SavedHost
 import app.arcis.core.Arcis
+import app.arcis.core.net.AddressOrder
 import kotlinx.coroutines.launch
 
 /** What a computer tile represents. */
@@ -58,8 +59,12 @@ fun computerTiles(saved: List<SavedHost>, found: List<FoundHost>): List<Computer
 fun ComputerTileView(tile: ComputerTile, connection: HostConnection, onClick: () -> Unit) {
     val (title, subtitle) = when (tile) {
         is ComputerTile.Paired -> tile.host.name to when (val c = connection) {
-            is HostConnection.Connected ->
-                if (c.host.fingerprint == tile.host.fingerprint) "Connected" + (c.latencyMs?.let { " · $it ms" } ?: "") else "Paired"
+            is HostConnection.Connected -> if (c.host.fingerprint == tile.host.fingerprint) {
+                "Connected" + (if (AddressOrder.isRemote(c.address)) " · Remote" else "") +
+                    (c.latencyMs?.let { " · $it ms" } ?: "")
+            } else {
+                "Paired"
+            }
             is HostConnection.Connecting -> if (c.name == tile.host.name) "Connecting…" else "Paired"
             is HostConnection.Failed -> if (c.name == tile.host.name) c.message else "Paired"
             HostConnection.Idle -> "Paired"

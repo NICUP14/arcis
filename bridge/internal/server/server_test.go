@@ -54,7 +54,8 @@ func startServer(t *testing.T) (*Server, *fakeInput, string) {
 		t.Fatal(err)
 	}
 	in := &fakeInput{}
-	s := &Server{Store: store, Input: in, Cert: cert, HostName: "test-pc"}
+	s := &Server{Store: store, Input: in, Cert: cert, HostName: "test-pc",
+		Addresses: func() []string { return []string{"192.168.1.5", "100.64.1.2"} }}
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
@@ -94,7 +95,7 @@ func TestPairThenControl(t *testing.T) {
 		t.Fatal(err)
 	}
 	paired, err := r.Read()
-	if err != nil || paired.T != proto.TypePaired || paired.Token == "" || paired.Host != "test-pc" {
+	if err != nil || paired.T != proto.TypePaired || paired.Token == "" || paired.Host != "test-pc" || len(paired.Addresses) != 2 {
 		t.Fatalf("pairing reply %+v %v", paired, err)
 	}
 

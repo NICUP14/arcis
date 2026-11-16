@@ -28,9 +28,9 @@ const MaxLine = 64 * 1024
 // Message types.
 const (
 	TypePair    = "pair"    // phone -> bridge: {pin, name}
-	TypePaired  = "paired"  // bridge -> phone: {token, host}
+	TypePaired  = "paired"  // bridge -> phone: {token, host, addresses}
 	TypeHello   = "hello"   // phone -> bridge: {token, name}
-	TypeWelcome = "welcome" // bridge -> phone: {host, os, version}
+	TypeWelcome = "welcome" // bridge -> phone: {host, os, version, addresses}
 	TypeError   = "error"   // bridge -> phone: {msg}
 
 	TypeMove   = "move"   // {dx, dy} relative pointer movement in pixels
@@ -62,6 +62,8 @@ type Message struct {
 	OS      string `json:"os,omitempty"`
 	Version int    `json:"version,omitempty"`
 	Msg     string `json:"msg,omitempty"`
+	// Addresses the bridge can be reached at (LAN, Tailscale...), sent in paired/welcome.
+	Addresses []string `json:"addresses,omitempty"`
 
 	// Input.
 	DX     float64  `json:"dx,omitempty"`

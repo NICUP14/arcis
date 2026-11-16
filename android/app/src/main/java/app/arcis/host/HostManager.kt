@@ -6,6 +6,7 @@ import android.net.nsd.NsdServiceInfo
 import android.os.Build
 import android.os.SystemClock
 import android.util.Log
+import app.arcis.core.net.AddressOrder
 import app.arcis.host.BridgeConnection.Companion.msg
 import app.arcis.host.BridgeConnection.Companion.request
 import kotlinx.coroutines.CoroutineScope
@@ -106,7 +107,8 @@ class HostManager(context: Context) {
                     if (reply.optString("t") != "paired") error(reply.optString("msg", "Pairing failed"))
                     SavedHost(
                         name = reply.optString("host", address),
-                        addresses = listOf(address),
+                        // The bridge tells us its other addresses (LAN, Tailscale): keep them all.
+                        addresses = AddressOrder.order(listOf(address), reply.stringList("addresses")),
                         port = port,
                         fingerprint = c.fingerprint,
                         token = reply.getString("token"),
@@ -123,18 +125,19 @@ class HostManager(context: Context) {
         _connection.value = HostConnection.Connecting(host.name)
         scope.launch {
             var lastError: Throwable? = null
-            for (address in host.addresses) {
+            for (address in AddressOrder.order(host.addresses)) {
                 try {
-                    val c = BridgeConnection.open(address, host.port, host.fingerprint)
+                    val c = BridgeConnection.open(address, host.port, host.fingerprint, AddressOrder.connectTimeoutMs(address))
                     val reply = c.request(msg("hello", "token" to host.token, "name" to phoneName))
                     if (reply.optString("t") != "welcome") {
                         c.close()
                         error(reply.optString("msg", "Refused"))
                     }
                     val os = reply.optString("os")
-                    if (os != host.os) store.save(host.copy(os = os))
+                    val updated = host.copy(os = os, addresses = AddressOrder.order(host.addresses, reply.stringList("addresses")))
+                    if (updated != host) store.save(updated)
                     conn = c
-                    _connection.value = HostConnection.Connected(host.copy(os = os), address, os, null)
+                    _connection.value = HostConnection.Connected(updated, address, os, null)
                     c.start(onMessage = ::onMessage, onClosed = { onClosed(c, host) })
                     startPing()
                     return@launch
@@ -143,7 +146,12 @@ class HostManager(context: Context) {
                     Log.i(TAG, "connect ${host.name} via $address failed: ${e.message}")
                 }
             }
-            _connection.value = HostConnection.Failed(host.name, lastError?.message ?: "Not reachable")
+            val hint = if (!phoneOnTailscale() && host.addresses.any { AddressOrder.kind(it) == AddressOrder.Kind.TAILSCALE }) {
+                "Not reachable. Away from home? Turn on Tailscale on this phone"
+            } else {
+                lastError?.message ?: "Not reachable"
+            }
+            _connection.value = HostConnection.Failed(host.name, hint)
         }
     }
 
@@ -193,6 +201,17 @@ class HostManager(context: Context) {
     fun scroll(dx: Float, dy: Float) = send(msg("scroll", "dx" to dx.toDouble(), "dy" to dy.toDouble()))
     fun key(key: String, mods: List<String> = emptyList()) = send(msg("key", "key" to key, "mods" to mods.ifEmpty { null }))
     fun text(text: String) = send(msg("text", "text" to text))
+
+    /** True when this phone has a Tailscale address (100.64.0.0/10) right now. */
+    fun phoneOnTailscale(): Boolean = runCatching {
+        java.net.NetworkInterface.getNetworkInterfaces().toList()
+            .filter { it.isUp }
+            .flatMap { it.inetAddresses.toList() }
+            .any { AddressOrder.kind(it.hostAddress.orEmpty()) == AddressOrder.Kind.TAILSCALE }
+    }.getOrDefault(false)
+
+    private fun org.json.JSONObject.stringList(key: String): List<String> =
+        optJSONArray(key)?.let { a -> (0 until a.length()).map { a.getString(it) } }.orEmpty()
 
     private companion object {
         const val TAG = "ArcisHost"

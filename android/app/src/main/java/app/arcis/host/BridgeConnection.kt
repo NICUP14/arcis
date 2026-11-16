@@ -78,7 +78,12 @@ class BridgeConnection private constructor(
          * Opens a TLS connection. With [pinnedFingerprint] null, any certificate is accepted
          * (pairing) and its fingerprint is reported; otherwise it must match exactly.
          */
-        fun open(address: String, port: Int, pinnedFingerprint: String?): BridgeConnection {
+        fun open(
+            address: String,
+            port: Int,
+            pinnedFingerprint: String?,
+            connectTimeoutMs: Int = CONNECT_TIMEOUT_MS,
+        ): BridgeConnection {
             var seen = ""
             val trust = object : X509TrustManager {
                 override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) = Unit
@@ -93,7 +98,7 @@ class BridgeConnection private constructor(
             val ctx = SSLContext.getInstance("TLS").apply { init(null, arrayOf(trust), null) }
             val socket = ctx.socketFactory.createSocket() as SSLSocket
             socket.tcpNoDelay = true
-            socket.connect(InetSocketAddress(address, port), CONNECT_TIMEOUT_MS)
+            socket.connect(InetSocketAddress(address, port), connectTimeoutMs)
             socket.soTimeout = HANDSHAKE_TIMEOUT_MS
             socket.startHandshake()
             val reader = BufferedReader(InputStreamReader(socket.inputStream))

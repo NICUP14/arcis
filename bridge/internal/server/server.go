@@ -25,6 +25,9 @@ type Server struct {
 	Cert     tls.Certificate
 	HostName string
 	Log      *log.Logger
+	// Addresses lists where phones can reach this computer (sent so they can fall back
+	// from the LAN to e.g. Tailscale on their own). May be nil.
+	Addresses func() []string
 
 	inputMu   sync.Mutex // input from several phones is serialized
 	connected atomic.Int32
@@ -58,6 +61,13 @@ func (s *Server) Serve(ln net.Listener) error {
 	}
 }
 
+func (s *Server) addresses() []string {
+	if s.Addresses == nil {
+		return nil
+	}
+	return s.Addresses()
+}
+
 func (s *Server) logf(format string, args ...any) {
 	if s.Log != nil {
 		s.Log.Printf(format, args...)
@@ -83,7 +93,7 @@ func (s *Server) handle(c net.Conn) {
 			return
 		}
 		s.logf("paired %q from %s", first.Name, remote)
-		_ = proto.Write(c, proto.Message{T: proto.TypePaired, Token: token, Host: s.HostName})
+		_ = proto.Write(c, proto.Message{T: proto.TypePaired, Token: token, Host: s.HostName, Addresses: s.addresses()})
 		return
 	case proto.TypeHello:
 		dev, ok := s.Store.Check(first.Token)
@@ -94,6 +104,7 @@ func (s *Server) handle(c net.Conn) {
 		}
 		if err := proto.Write(c, proto.Message{
 			T: proto.TypeWelcome, Host: s.HostName, OS: runtime.GOOS, Version: proto.Version,
+			Addresses: s.addresses(),
 		}); err != nil {
 			return
 		}

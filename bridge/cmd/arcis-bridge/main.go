@@ -57,7 +57,7 @@ func main() {
 		defer inj.Close()
 	}
 
-	srv := &server.Server{Store: store, Input: inj, Cert: cert, HostName: host, Log: logger}
+	srv := &server.Server{Store: store, Input: inj, Cert: cert, HostName: host, Log: logger, Addresses: status.LocalAddresses}
 	ln, err := net.Listen("tcp", net.JoinHostPort(*bind, fmt.Sprint(*port)))
 	if err != nil {
 		logger.Fatalf("listen on port %d: %v", *port, err)
