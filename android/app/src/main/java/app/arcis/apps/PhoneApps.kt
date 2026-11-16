@@ -22,6 +22,16 @@ class PhoneApps(private val context: Context) {
     private val pm: PackageManager = context.packageManager
     private val iconCache = HashMap<String, Bitmap>()
 
+    @Volatile
+    private var cached: List<PhoneApp>? = null
+
+    /** Called after an app was opened on an external display. */
+    var onOpened: ((String) -> Unit)? = null
+
+    /** Looks up an installed app by package (uses the last loaded list). */
+    fun find(packageName: String): PhoneApp? =
+        (cached ?: list()).firstOrNull { it.packageName == packageName }
+
     /** All launcher apps except Arcis itself, sorted by name. */
     fun list(): List<PhoneApp> {
         val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
@@ -39,6 +49,7 @@ class PhoneApps(private val context: Context) {
             .distinctBy { it.packageName }
             .sortedBy { it.label.lowercase() }
             .toList()
+            .also { cached = it }
     }
 
     fun icon(app: PhoneApp, sizePx: Int): Bitmap? = synchronized(iconCache) {
@@ -58,9 +69,11 @@ class PhoneApps(private val context: Context) {
             .setComponent(app.component)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
         val options = ActivityOptions.makeBasic().setLaunchDisplayId(displayId)
-        return runCatching { caller.startActivity(intent, options.toBundle()) }
+        val ok = runCatching { caller.startActivity(intent, options.toBundle()) }
             .onFailure { Log.w(TAG, "cannot open ${app.packageName} on display $displayId", it) }
             .isSuccess
+        if (ok) onOpened?.invoke(app.packageName)
+        return ok
     }
 
     private companion object {

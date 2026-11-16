@@ -2,6 +2,8 @@ package app.arcis.a11y
 
 import android.accessibilityservice.AccessibilityService
 import android.graphics.PointF
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
@@ -25,9 +27,14 @@ import kotlinx.coroutines.launch
 class ArcisAccessibilityService : AccessibilityService() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     private var screen: ExternalScreen? = null
     private var cursor: CursorOverlay? = null
+
+    /** Switcher cards and status flashes on the external screen. */
+    var uiOverlay: GlassesUiOverlay? = null
+        private set
     private var injector: GestureInjector? = null
     private var x = 0f
     private var y = 0f
@@ -89,24 +96,47 @@ class ArcisAccessibilityService : AccessibilityService() {
         }
         detach()
         screen = newScreen ?: return
-        val display = ArcisApp.instance.displays.display() ?: return
+        if (ArcisApp.instance.displays.display() == null) return
         x = newScreen.widthPx / 2f
         y = newScreen.heightPx / 2f
         injector = GestureInjector(this, newScreen.displayId) {
             val s = screen
             PointF((s?.widthPx ?: 1).toFloat(), (s?.heightPx ?: 1).toFloat())
         }
-        cursor = runCatching { CursorOverlay(this, display).also { it.show(); it.moveTo(x, y) } }
-            .onFailure { Log.w(TAG, "cursor overlay failed", it) }
-            .getOrNull()
+        addOverlays(newScreen.displayId, attempt = 1)
         updateForegroundPackage()
     }
 
+    /**
+     * Adds the switcher/flash overlay and the cursor. Right after a screen is plugged in,
+     * the accessibility system may not know the display yet (BadTokenException), so retry.
+     */
+    private fun addOverlays(displayId: Int, attempt: Int) {
+        if (screen?.displayId != displayId) return
+        val display = ArcisApp.instance.displays.display() ?: return
+        if (uiOverlay == null) {
+            uiOverlay = runCatching { GlassesUiOverlay(this, display).also { it.show() } }.getOrNull()
+        }
+        if (cursor == null) {
+            // Added after the UI overlay so the cursor stays on top.
+            cursor = runCatching { CursorOverlay(this, display).also { it.show(); it.moveTo(x, y) } }.getOrNull()
+        }
+        if (uiOverlay != null && cursor != null) return
+        if (attempt >= OVERLAY_ATTEMPTS) {
+            Log.w(TAG, "overlays unavailable on display $displayId")
+            return
+        }
+        mainHandler.postDelayed({ addOverlays(displayId, attempt + 1) }, OVERLAY_RETRY_MS)
+    }
+
     private fun detach() {
+        mainHandler.removeCallbacksAndMessages(null)
         injector?.cancelAll()
         injector = null
         cursor?.remove()
         cursor = null
+        uiOverlay?.remove()
+        uiOverlay = null
         screen = null
         dragging = false
     }
@@ -161,6 +191,8 @@ class ArcisAccessibilityService : AccessibilityService() {
 
     companion object {
         private const val TAG = "ArcisA11y"
+        private const val OVERLAY_ATTEMPTS = 10
+        private const val OVERLAY_RETRY_MS = 500L
 
         /** The running service, or null when accessibility is off. */
         @Volatile

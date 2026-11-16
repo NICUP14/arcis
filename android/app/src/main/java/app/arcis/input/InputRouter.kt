@@ -14,6 +14,7 @@ import app.arcis.glasses.GlassesLauncher
 class InputRouter(private val context: Context) {
 
     fun handle(gesture: Gesture) {
+        if (ArcisApp.instance.switcher.handle(gesture, context)) return
         when (gesture) {
             Gesture.Home -> goHome()
             else -> toAccessibility(gesture)
@@ -29,7 +30,7 @@ class InputRouter(private val context: Context) {
             Gesture.DragEnd -> svc.dragEnd()
             is Gesture.Scroll -> svc.scroll(g.dx, g.dy)
             Gesture.Back -> svc.back()
-            else -> Unit // switcher gestures arrive with the recents switcher
+            else -> Unit
         }
     }
 

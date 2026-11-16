@@ -1,0 +1,196 @@
+package app.arcis.a11y
+
+import android.accessibilityservice.AccessibilityService
+import android.graphics.PixelFormat
+import android.view.Display
+import android.view.WindowManager
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.setViewTreeLifecycleOwner
+import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import app.arcis.glasses.GlassesColors
+
+/** A card in the switcher. */
+data class SwitcherCard(val id: String, val label: String, val icon: ImageBitmap?)
+
+/**
+ * Non-touchable Compose overlay on the external screen, drawn above every app:
+ * the card switcher (Recents) and a short "you are now in X" label.
+ */
+class GlassesUiOverlay(service: AccessibilityService, display: Display) {
+
+    private val context = service
+        .createDisplayContext(display)
+        .createWindowContext(WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY, null)
+    private val windowManager = context.getSystemService(WindowManager::class.java)
+    private val owner = OverlayLifecycleOwner()
+
+    private var cards by mutableStateOf<List<SwitcherCard>>(emptyList())
+    private var selected by mutableStateOf(0)
+    private var switcherVisible by mutableStateOf(false)
+    private var flashText by mutableStateOf<String?>(null)
+    private var flashToken = 0
+
+    private val view = ComposeView(context).apply {
+        setViewTreeLifecycleOwner(owner)
+        setViewTreeSavedStateRegistryOwner(owner)
+        setContent { OverlayContent() }
+    }
+    private var attached = false
+
+    fun show() {
+        if (attached) return
+        owner.start()
+        val params = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            PixelFormat.TRANSLUCENT,
+        )
+        windowManager.addView(view, params)
+        attached = true
+    }
+
+    fun remove() {
+        if (!attached) return
+        runCatching { windowManager.removeView(view) }
+        owner.destroy()
+        attached = false
+    }
+
+    fun showSwitcher(newCards: List<SwitcherCard>, selectedIndex: Int) {
+        cards = newCards
+        selected = selectedIndex.coerceIn(0, (newCards.size - 1).coerceAtLeast(0))
+        switcherVisible = true
+    }
+
+    /** Moves the selection; returns the newly selected index. */
+    fun moveSelection(steps: Int): Int {
+        selected = (selected + steps).coerceIn(0, (cards.size - 1).coerceAtLeast(0))
+        return selected
+    }
+
+    fun selectedCard(): SwitcherCard? = cards.getOrNull(selected)
+
+    fun hideSwitcher() {
+        switcherVisible = false
+    }
+
+    /** Shows [text] centred for a moment (e.g. the name of the app you switched to). */
+    fun flash(text: String) {
+        val token = ++flashToken
+        flashText = text
+        view.postDelayed({ if (token == flashToken) flashText = null }, FLASH_MS)
+    }
+
+    @Composable
+    private fun OverlayContent() {
+        Box(Modifier.fillMaxSize()) {
+            AnimatedVisibility(switcherVisible, enter = fadeIn(), exit = fadeOut()) {
+                Switcher()
+            }
+            val text = flashText
+            AnimatedVisibility(
+                text != null && !switcherVisible,
+                enter = fadeIn(),
+                exit = fadeOut(),
+                modifier = Modifier.align(Alignment.Center),
+            ) {
+                Text(
+                    text ?: "",
+                    color = GlassesColors.Text,
+                    fontSize = 28.sp,
+                    modifier = Modifier
+                        .background(Color(0xE610121A), RoundedCornerShape(20.dp))
+                        .padding(horizontal = 28.dp, vertical = 14.dp),
+                )
+            }
+        }
+    }
+
+    @Composable
+    private fun Switcher() {
+        Box(
+            Modifier.fillMaxSize().background(Color(0xD9000000)),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (cards.isEmpty()) {
+                Text("No recent apps", color = GlassesColors.Dim, fontSize = 22.sp)
+                return@Box
+            }
+            // Keep the selected card centred: show a window of cards around it.
+            val first = (selected - 2).coerceAtLeast(0)
+            val visible = cards.subList(first, (first + 5).coerceAtMost(cards.size))
+            Row(horizontalArrangement = Arrangement.spacedBy(28.dp), verticalAlignment = Alignment.CenterVertically) {
+                visible.forEachIndexed { i, card -> Card(card, first + i == selected) }
+            }
+        }
+    }
+
+    @Composable
+    private fun Card(card: SwitcherCard, isSelected: Boolean) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier
+                .scale(if (isSelected) 1.12f else 0.92f)
+                .width(220.dp)
+                .height(200.dp)
+                .background(GlassesColors.Card, RoundedCornerShape(22.dp))
+                .border(
+                    if (isSelected) 2.dp else 1.dp,
+                    if (isSelected) GlassesColors.Accent else GlassesColors.CardBorder,
+                    RoundedCornerShape(22.dp),
+                )
+                .padding(16.dp),
+        ) {
+            Box(Modifier.size(84.dp), contentAlignment = Alignment.Center) {
+                card.icon?.let { Image(it, contentDescription = null, modifier = Modifier.size(84.dp)) }
+            }
+            Spacer(Modifier.height(14.dp))
+            Text(
+                card.label,
+                color = if (isSelected) GlassesColors.Text else GlassesColors.Dim,
+                fontSize = 18.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+
+    private companion object {
+        const val FLASH_MS = 1_200L
+    }
+}
