@@ -126,9 +126,15 @@ class BluetoothActivity : ComponentActivity() {
         Column(
             Modifier.fillMaxSize().background(GlassesColors.Background).padding(horizontal = 64.dp, vertical = 36.dp),
         ) {
-            Text("Bluetooth mouse & keyboard", color = GlassesColors.Text, fontSize = 26.sp, fontWeight = FontWeight.Medium)
-            Spacer(Modifier.height(20.dp))
             val connected = state.connected
+            val controllingNow = controlling && connected != null
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                // While controlling, the pointer belongs to the device, so no button here:
+                // the Controlling screen says how to leave instead.
+                if (!controllingNow) HomeButton()
+                Text("Bluetooth mouse & keyboard", color = GlassesColors.Text, fontSize = 26.sp, fontWeight = FontWeight.Medium)
+            }
+            Spacer(Modifier.height(20.dp))
             when {
                 !state.permitted -> Action("Allow Bluetooth for Arcis", "Needed to act as a mouse and keyboard.") {
                     onPhone(MainActivity.STEP_PERMISSION, "Allow Bluetooth on your phone")
@@ -136,7 +142,7 @@ class BluetoothActivity : ComponentActivity() {
                 !state.bluetoothOn -> Action("Turn on Bluetooth", "Confirm on your phone") {
                     onPhone(MainActivity.STEP_ENABLE, "Confirm on your phone")
                 }
-                controlling && connected != null -> Controlling(connected)
+                controllingNow -> Controlling(connected!!)
                 else -> DeviceList(state)
             }
         }
@@ -193,9 +199,14 @@ class BluetoothActivity : ComponentActivity() {
         Text("Controlling ${device.name ?: device.address}", color = GlassesColors.Accent, fontSize = 22.sp)
         Spacer(Modifier.height(10.dp))
         Text(
-            "The trackpad moves its pointer. Type on your phone (upright) or hold volume up to speak.\n" +
-                "Swipe up from the bottom edge to leave.",
+            "The trackpad moves its pointer. Type on your phone (upright) or hold the mic button to speak.",
             color = GlassesColors.Dim,
+            fontSize = 16.sp,
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "To leave: swipe up from the bottom edge of the trackpad, or press volume up.",
+            color = GlassesColors.Text,
             fontSize = 16.sp,
         )
         Spacer(Modifier.height(24.dp))
@@ -220,6 +231,21 @@ class BluetoothActivity : ComponentActivity() {
                 .border(1.dp, GlassesColors.CardBorder, RoundedCornerShape(16.dp))
                 .padding(horizontal = 20.dp, vertical = 14.dp),
         )
+    }
+
+    /** Back to Arcis Home on this screen. */
+    @Composable
+    private fun HomeButton() {
+        Box(
+            Modifier
+                .background(GlassesColors.Card, RoundedCornerShape(14.dp))
+                .border(1.dp, GlassesColors.CardBorder, RoundedCornerShape(14.dp))
+                .clickable {
+                    GlassesLauncher.showHome(this@BluetoothActivity, display?.displayId ?: Display.DEFAULT_DISPLAY)
+                    finish()
+                }
+                .padding(horizontal = 18.dp, vertical = 10.dp),
+        ) { Text("‹  Home", color = GlassesColors.Text, fontSize = 18.sp) }
     }
 
     @Composable
