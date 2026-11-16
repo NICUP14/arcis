@@ -1,8 +1,12 @@
 package app.arcis
 
+import android.app.ActivityOptions
+import android.content.Intent
+import android.view.Display
 import android.content.pm.ActivityInfo
 import android.os.Bundle
-import android.util.Log
+import android.provider.Settings
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
@@ -10,6 +14,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -29,20 +34,33 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
+import app.arcis.a11y.ArcisAccessibilityService
 import app.arcis.controller.TrackpadView
 import app.arcis.core.input.Gesture
-import app.arcis.display.ExternalScreen
 import app.arcis.glasses.GlassesLauncher
+import app.arcis.input.InputRouter
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-/** Phone-side controller: status when no screen is connected, trackpad otherwise. */
+/** Phone-side controller: setup/status screens, or the trackpad when everything is ready. */
 class MainActivity : ComponentActivity() {
 
     private val displays get() = ArcisApp.instance.displays
+    private lateinit var router: InputRouter
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // The controller belongs on the phone. Android starts new tasks on the focused display,
+        // which can be the glasses; if that happens, move to the phone's display.
+        if (display?.displayId != Display.DEFAULT_DISPLAY) {
+            startActivity(
+                Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                ActivityOptions.makeBasic().setLaunchDisplayId(Display.DEFAULT_DISPLAY).toBundle(),
+            )
+            finish()
+            return
+        }
+        router = InputRouter(this)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         WindowInsetsControllerCompat(window, window.decorView).apply {
             hide(WindowInsetsCompat.Type.systemBars())
@@ -50,14 +68,14 @@ class MainActivity : ComponentActivity() {
         }
         setContent {
             val screen by displays.screen.collectAsState()
-            LaunchedEffect(screen != null) {
-                requestedOrientation = if (screen != null) {
-                    ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-                } else {
-                    ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-                }
+            val a11y by ArcisAccessibilityService.connected.collectAsState()
+            val trackpad = screen != null && a11y
+            LaunchedEffect(trackpad) { setTrackpadWindow(trackpad) }
+            when {
+                screen == null -> Message("Connect your glasses or an external screen over USB-C")
+                !a11y -> AccessibilitySetup { openAccessibilitySettings() }
+                else -> Controller(router::handle)
             }
-            if (screen == null) ControllerStatus(null) else Controller(::onGesture)
         }
         // Whenever an external screen appears, put Arcis Home on it.
         lifecycleScope.launch {
@@ -76,12 +94,26 @@ class MainActivity : ComponentActivity() {
         displays.refresh()
     }
 
-    private fun onGesture(gesture: Gesture) {
-        if (gesture !is Gesture.PointerMove && gesture !is Gesture.Scroll) Log.d(TAG, "gesture $gesture")
+    /**
+     * In trackpad mode the controller is landscape and NOT focusable: touching the phone
+     * then doesn't steal input focus from the external screen, so Back and typed keys
+     * reach the app shown there.
+     */
+    private fun setTrackpadWindow(trackpad: Boolean) {
+        requestedOrientation = if (trackpad) {
+            ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        } else {
+            ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        }
+        if (trackpad) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE)
+        } else {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE)
+        }
     }
 
-    private companion object {
-        const val TAG = "Arcis"
+    private fun openAccessibilitySettings() {
+        startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     }
 }
 
@@ -110,23 +142,40 @@ private fun Controller(onGesture: (Gesture) -> Unit) {
 }
 
 @Composable
-private fun ControllerStatus(screen: ExternalScreen?) {
+private fun Message(text: String) {
     Box(
         modifier = Modifier.fillMaxSize().background(Color.Black).padding(32.dp),
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("Arcis", color = Color.White)
+            Text("Arcis", color = Color.White, fontSize = 22.sp)
             Text(
-                text = if (screen == null) {
-                    "Connect your glasses or an external screen over USB-C"
-                } else {
-                    "Connected: ${screen.name}\n${screen.widthPx}×${screen.heightPx}"
-                },
+                text,
                 color = Color(0xFF8A90A0),
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(top = 12.dp),
             )
+        }
+    }
+}
+
+@Composable
+private fun AccessibilitySetup(onOpenSettings: () -> Unit) {
+    Box(
+        modifier = Modifier.fillMaxSize().background(Color.Black).padding(32.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("One-time setup", color = Color.White, fontSize = 22.sp)
+            Text(
+                "Turn on \"Arcis controller\" in Accessibility so your phone can control apps on the " +
+                    "external screen.\n\nIf Android says the setting is restricted: open App info for " +
+                    "Arcis, tap ⋮ → \"Allow restricted settings\", then try again.",
+                color = Color(0xFF8A90A0),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(vertical = 16.dp),
+            )
+            Button(onClick = onOpenSettings) { Text("Open Accessibility settings") }
         }
     }
 }

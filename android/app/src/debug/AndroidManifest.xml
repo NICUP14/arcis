@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug-only test bed: a simulated external screen for testing without glasses. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <application>
+        <!-- The simulated screen is an untrusted virtual display: activities may only appear there
+             if they allow embedding, and the first launch must come from adb (shell) because
+             Arcis isn't present on the display yet. Real screens need none of this. -->
+        <activity
+            android:name=".glasses.GlassesHomeActivity"
+            android:allowEmbedded="true"
+            android:exported="true"
+            tools:node="merge"
+            tools:replace="android:exported" />
+
+        <activity
+            android:name=".debug.SimScreenActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <service
+            android:name=".debug.SimScreenService"
+            android:exported="true"
+            android:foregroundServiceType="mediaProjection" />
+    </application>
+</manifest>

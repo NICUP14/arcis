@@ -10,6 +10,8 @@ import android.os.SystemClock
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
+import android.view.WindowInsets
+import androidx.core.view.WindowInsetsCompat
 import app.arcis.core.input.Gesture
 import app.arcis.core.input.GestureConfig
 import app.arcis.core.input.TouchAction
@@ -60,15 +62,35 @@ class TrackpadView(
         recentsCloseDistance = dp(80f),
     )
 
-    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
-        engine.resize(w.toFloat(), h.toFloat())
+    // Space the (hidden) system navigation bar can slide into. Edge zones are kept inside it
+    // so a swipe meant for Arcis never lands on Back/Home/Recents when the bar reappears.
+    private var insetRight = 0
+    private var insetBottom = 0
+
+    override fun onApplyWindowInsets(insets: WindowInsets): WindowInsets {
+        val compat = WindowInsetsCompat.toWindowInsetsCompat(insets, this)
+        val nav = compat.getInsetsIgnoringVisibility(
+            WindowInsetsCompat.Type.navigationBars() or WindowInsetsCompat.Type.displayCutout(),
+        )
+        insetRight = nav.right
+        insetBottom = nav.bottom
+        resizeEngine()
+        invalidate()
+        return insets
+    }
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) = resizeEngine()
+
+    private fun resizeEngine() {
+        engine.resize((width - insetRight).toFloat(), (height - insetBottom).toFloat())
     }
 
     override fun onDraw(canvas: Canvas) {
-        val bottom = height - engine.config.bottomEdge
-        canvas.drawLine(width * 0.3f, bottom, width * 0.7f, bottom, guidePaint)
+        val w = width - insetRight
+        val bottom = height - insetBottom - engine.config.bottomEdge
+        canvas.drawLine(w * 0.3f, bottom, w * 0.7f, bottom, guidePaint)
         if (engine.config.rightEdge > 0f) {
-            val x = width - engine.config.rightEdge
+            val x = w - engine.config.rightEdge
             canvas.drawLine(x, height * 0.2f, x, bottom - dp(16f), guidePaint)
         }
     }
