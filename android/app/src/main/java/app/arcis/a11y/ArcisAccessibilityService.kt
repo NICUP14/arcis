@@ -2,7 +2,11 @@ package app.arcis.a11y
 
 import android.accessibilityservice.AccessibilityService
 import android.graphics.PointF
+import android.os.Build
 import android.os.Bundle
+import android.os.SystemClock
+import android.accessibilityservice.InputMethod.AccessibilityInputConnection
+import androidx.annotation.RequiresApi
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
@@ -11,6 +15,7 @@ import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
 import app.arcis.ArcisApp
+import app.arcis.core.input.ShapeCommand
 import app.arcis.core.text.SpokenPunctuation
 import app.arcis.display.ExternalScreen
 import kotlinx.coroutines.CoroutineScope
@@ -181,36 +186,110 @@ class ArcisAccessibilityService : AccessibilityService() {
      * caret, replacing any selection. Returns false if no editable field has focus there.
      */
     fun insertText(text: String): Boolean {
-        val displayId = screen?.displayId ?: return false
+        val field = focusedField() ?: return false
+        val ic = connection()
+        if (ic != null) {
+            // Android 13+: type through our own input connection, like a keyboard would.
+            val before = ic.getSurroundingText(200, 0, 0)
+                ?.let { it.text.subSequence(0, it.selectionStart.coerceIn(0, it.text.length)).toString() }
+                ?: field.before
+            ic.commitText(SpokenPunctuation.join(before, text), 1, null)
+            return true
+        }
+        return field.replaceSelection(SpokenPunctuation.join(field.before, text))
+    }
+
+    /** Result of a drawn edit shortcut in a phone app. */
+    enum class EditResult { DONE, NO_FIELD, UNSUPPORTED }
+
+    /** Copy / paste / undo / Enter / Backspace on the selected text field of the external screen. */
+    fun performEdit(command: ShapeCommand): EditResult {
+        val field = focusedField() ?: return EditResult.NO_FIELD
+        val ic = connection()
+        if (ic != null) {
+            // Android 13+: real key events and menu actions, so the keyboard stays in sync.
+            when (command) {
+                ShapeCommand.COPY -> {
+                    if (field.start == field.end) ic.performContextMenuAction(android.R.id.selectAll)
+                    ic.performContextMenuAction(android.R.id.copy)
+                }
+                ShapeCommand.PASTE -> ic.performContextMenuAction(android.R.id.paste)
+                ShapeCommand.UNDO -> ic.key(KeyEvent.KEYCODE_Z, KeyEvent.META_CTRL_ON or KeyEvent.META_CTRL_LEFT_ON)
+                ShapeCommand.ENTER -> ic.key(KeyEvent.KEYCODE_ENTER)
+                ShapeCommand.BACKSPACE -> ic.key(KeyEvent.KEYCODE_DEL)
+            }
+            return EditResult.DONE
+        }
+        // Android 11-12: node actions (no undo there).
+        val node = field.node
+        val ok = when (command) {
+            ShapeCommand.COPY -> {
+                if (field.start == field.end) field.select(0, field.text.length) // nothing selected: copy all
+                node.performAction(AccessibilityNodeInfo.ACTION_COPY)
+            }
+            ShapeCommand.PASTE -> node.performAction(AccessibilityNodeInfo.ACTION_PASTE)
+            ShapeCommand.ENTER -> node.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.id)
+            ShapeCommand.BACKSPACE -> when {
+                field.start != field.end -> field.replaceSelection("")
+                field.start > 0 -> field.copy(start = field.start - 1).replaceSelection("")
+                else -> true
+            }
+            ShapeCommand.UNDO -> return EditResult.UNSUPPORTED
+        }
+        return if (ok) EditResult.DONE else EditResult.UNSUPPORTED
+    }
+
+    /** Our own input connection to the focused field (Android 13+, flagInputMethodEditor). */
+    private fun connection(): AccessibilityInputConnection? =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) inputMethod?.currentInputConnection else null
+
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
+    private fun AccessibilityInputConnection.key(code: Int, meta: Int = 0) {
+        val now = SystemClock.uptimeMillis()
+        sendKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_DOWN, code, 0, meta))
+        sendKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_UP, code, 0, meta))
+    }
+
+    /** The focused text field on the external screen with its current text and selection. */
+    private data class Field(val node: AccessibilityNodeInfo, val text: String, val start: Int, val end: Int) {
+        val before get() = text.substring(0, start)
+
+        fun select(from: Int, to: Int) = node.performAction(
+            AccessibilityNodeInfo.ACTION_SET_SELECTION,
+            Bundle().apply {
+                putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_START_INT, from)
+                putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_END_INT, to)
+            },
+        )
+
+        /** Replaces the selection (or inserts at the caret) and puts the caret after it. */
+        fun replaceSelection(piece: String): Boolean {
+            val newText = text.substring(0, start) + piece + text.substring(end)
+            val args = Bundle().apply {
+                putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, newText)
+            }
+            if (!node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)) return false
+            select(start + piece.length, start + piece.length)
+            return true
+        }
+    }
+
+    private fun focusedField(): Field? {
+        val displayId = screen?.displayId ?: return null
         val node = windowsOnAllDisplays.get(displayId).orEmpty()
             .asSequence()
             .mapNotNull { it.root?.let(::focusedEditable) }
             .firstOrNull()
-            ?: return false
+            ?: return null
         node.refresh() // make sure text and caret are current
-        val current = if (node.isShowingHintText) "" else node.text?.toString().orEmpty()
+        val text = if (node.isShowingHintText) "" else node.text?.toString().orEmpty()
         var start = node.textSelectionStart
         var end = node.textSelectionEnd
-        if (start < 0 || end < 0 || start > current.length || end > current.length) {
-            start = current.length
-            end = current.length
+        if (start < 0 || end < 0 || start > text.length || end > text.length) {
+            start = text.length
+            end = text.length
         }
-        val before = current.substring(0, minOf(start, end))
-        val after = current.substring(maxOf(start, end))
-        val piece = SpokenPunctuation.join(before, text)
-        val setText = Bundle().apply {
-            putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, before + piece + after)
-        }
-        if (!node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, setText)) return false
-        val caret = before.length + piece.length
-        node.performAction(
-            AccessibilityNodeInfo.ACTION_SET_SELECTION,
-            Bundle().apply {
-                putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_START_INT, caret)
-                putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_END_INT, caret)
-            },
-        )
-        return true
+        return Field(node, text, minOf(start, end), maxOf(start, end))
     }
 
     fun cursorPosition(): PointF = PointF(x, y)

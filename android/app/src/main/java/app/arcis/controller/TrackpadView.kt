@@ -14,6 +14,7 @@ import android.view.WindowInsets
 import androidx.core.view.WindowInsetsCompat
 import app.arcis.core.input.Gesture
 import app.arcis.core.input.GestureConfig
+import app.arcis.core.input.ShapeCommand
 import app.arcis.core.input.TouchAction
 import app.arcis.core.input.TouchEvent
 import app.arcis.core.input.TouchPoint
@@ -134,6 +135,16 @@ class TrackpadView(
         is Gesture.RecentsMove -> HapticFeedbackConstants.CLOCK_TICK
         Gesture.RecentsOpenSelected -> HapticFeedbackConstants.CONFIRM
         Gesture.RecentsCloseSelected -> HapticFeedbackConstants.REJECT
+        Gesture.ShapeArmed -> HapticFeedbackConstants.CLOCK_TICK
+        // Each shortcut feels different, so you know which one was recognized.
+        is Gesture.ShapeDrawn -> when (g.command) {
+            ShapeCommand.COPY -> HapticFeedbackConstants.CONTEXT_CLICK
+            ShapeCommand.PASTE -> HapticFeedbackConstants.GESTURE_END
+            ShapeCommand.UNDO -> HapticFeedbackConstants.LONG_PRESS
+            ShapeCommand.ENTER -> HapticFeedbackConstants.CONFIRM
+            ShapeCommand.BACKSPACE -> HapticFeedbackConstants.KEYBOARD_TAP
+            null -> HapticFeedbackConstants.REJECT
+        }
     }
 
     override fun onDetachedFromWindow() {

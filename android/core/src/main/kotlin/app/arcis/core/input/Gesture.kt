@@ -29,6 +29,12 @@ sealed interface Gesture {
     data class RecentsMove(val steps: Int) : Gesture
     data object RecentsOpenSelected : Gesture
     data object RecentsCloseSelected : Gesture
+
+    /** Finger rested still long enough: the next movement draws a shape (tick feedback). */
+    data object ShapeArmed : Gesture
+
+    /** A drawn shape finished; [command] is null when it wasn't recognized. */
+    data class ShapeDrawn(val command: ShapeCommand?) : Gesture
 }
 
 enum class Button { LEFT, RIGHT }

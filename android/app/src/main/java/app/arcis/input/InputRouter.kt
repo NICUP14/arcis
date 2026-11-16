@@ -5,6 +5,7 @@ import app.arcis.ArcisApp
 import app.arcis.a11y.ArcisAccessibilityService
 import app.arcis.core.input.Button
 import app.arcis.core.input.Gesture
+import app.arcis.core.input.ShapeCommand
 import app.arcis.glasses.GlassesLauncher
 
 /**
@@ -30,12 +31,38 @@ class InputRouter(private val context: Context) {
             Gesture.DragEnd -> svc.dragEnd()
             is Gesture.Scroll -> svc.scroll(g.dx, g.dy)
             Gesture.Back -> svc.back()
+            is Gesture.ShapeDrawn -> shortcut(svc, g)
             else -> Unit
         }
+    }
+
+    private fun shortcut(svc: ArcisAccessibilityService, g: Gesture.ShapeDrawn) {
+        val overlay = svc.uiOverlay
+        val command = g.command ?: run {
+            overlay?.flash("Shape not recognized")
+            return
+        }
+        val message = when (svc.performEdit(command)) {
+            ArcisAccessibilityService.EditResult.DONE -> DONE_LABELS.getValue(command)
+            ArcisAccessibilityService.EditResult.NO_FIELD -> "Select a text field first"
+            ArcisAccessibilityService.EditResult.UNSUPPORTED ->
+                if (command == ShapeCommand.UNDO) "Undo needs Android 13 or newer" else "Not possible here"
+        }
+        overlay?.flash(message)
     }
 
     private fun goHome() {
         val screen = ArcisApp.instance.displays.screen.value ?: return
         GlassesLauncher.showHome(context, screen.displayId)
+    }
+
+    private companion object {
+        val DONE_LABELS = mapOf(
+            ShapeCommand.COPY to "Copied",
+            ShapeCommand.PASTE to "Pasted",
+            ShapeCommand.UNDO to "Undone",
+            ShapeCommand.ENTER to "Enter",
+            ShapeCommand.BACKSPACE to "Deleted",
+        )
     }
 }

@@ -28,6 +28,7 @@ class TrackpadGestureEngine(
         IDLE,
         PENDING,        // one finger down, not moved yet
         MOVING,         // one finger moving the pointer
+        SHAPE,          // rested, then drawing a shortcut shape
         DRAGGING,       // double-tap-hold drag
         LONG_PRESSED,   // long-press fired; ignore until up
         TWO_PENDING,    // two fingers down, not moved yet
@@ -56,6 +57,9 @@ class TrackpadGestureEngine(
     private var lastTapX = 0f
     private var lastTapY = 0f
     private var armedForDrag = false
+    private var shapeArmed = false
+    private val shapePoints = mutableListOf<Point>()
+    private val shapes = ShapeRecognizer()
 
     private var timerAt: Long? = null
     private var bottomStillSince = 0L
@@ -85,7 +89,11 @@ class TrackpadGestureEngine(
         if (nowMs < due) return
         timerAt = null
         when (mode) {
-            Mode.PENDING -> {
+            Mode.PENDING -> if (!shapeArmed && config.shapesEnabled && !armedForDrag && nowMs < downTime + config.longPressMs) {
+                shapeArmed = true
+                sink(Gesture.ShapeArmed)
+                timerAt = downTime + config.longPressMs
+            } else {
                 mode = Mode.LONG_PRESSED
                 armedForDrag = false
                 sink(Gesture.Click(Button.RIGHT))
@@ -118,12 +126,17 @@ class TrackpadGestureEngine(
                     armedForDrag = e.timeMs - lastTapUpTime <= config.doubleTapTimeoutMs &&
                         hypot(p.x - lastTapX, p.y - lastTapY) <= config.touchSlop * 3
                     mode = Mode.PENDING
-                    timerAt = e.timeMs + config.longPressMs
+                    shapeArmed = false
+                    timerAt = e.timeMs + if (config.shapesEnabled && !armedForDrag) config.shapeHoldMs else config.longPressMs
                 }
             }
             return
         }
         // Second (or more) finger.
+        if (mode == Mode.SHAPE) {
+            mode = Mode.IGNORE // a second finger cancels the shape
+            return
+        }
         // Fingers rarely land together: a second finger shortly after the first still means "two-finger".
         val lateSecondFinger = mode == Mode.MOVING && e.timeMs - downTime <= TWO_FINGER_GRACE_MS
         when {
@@ -156,6 +169,13 @@ class TrackpadGestureEngine(
                 val p = e.points.first()
                 if (hypot(p.x - downX, p.y - downY) > config.touchSlop) {
                     timerAt = null
+                    if (shapeArmed) {
+                        mode = Mode.SHAPE
+                        shapePoints.clear()
+                        shapePoints += Point(downX, downY)
+                        shapePoints += Point(p.x, p.y)
+                        return
+                    }
                     mode = if (armedForDrag) {
                         sink(Gesture.DragStart)
                         Mode.DRAGGING
@@ -166,6 +186,7 @@ class TrackpadGestureEngine(
                 }
             }
             Mode.MOVING, Mode.DRAGGING -> emitPointer(e.points.first(), e.timeMs)
+            Mode.SHAPE -> e.points.first().let { shapePoints += Point(it.x, it.y) }
             Mode.TWO_PENDING, Mode.TWO_SCROLLING -> {
                 if (e.points.size < 2) return
                 val (cx, cy) = centroid(e.points)
@@ -252,6 +273,10 @@ class TrackpadGestureEngine(
                 }
             }
             Mode.DRAGGING -> sink(Gesture.DragEnd)
+            Mode.SHAPE -> {
+                shapePoints += Point(p.x, p.y)
+                sink(Gesture.ShapeDrawn(shapes.recognize(shapePoints)?.command))
+            }
             Mode.TWO_PENDING -> {
                 if (maxPointers == 2 && e.timeMs - twoDownTime <= config.tapTimeoutMs * 2) {
                     sink(Gesture.Back)

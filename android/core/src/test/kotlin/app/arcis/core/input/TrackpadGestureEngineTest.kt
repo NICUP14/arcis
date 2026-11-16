@@ -97,9 +97,45 @@ class TrackpadGestureEngineTest {
     @Test
     fun longPressIsRightClickOnce() {
         down(0, 500f, 500f)
-        hold(600)
+        hold(400)
+        hold(200)
         up(0, dt = 100)
-        assertEquals(listOf(Gesture.Click(Button.RIGHT)), out)
+        // The shape "armed" tick comes first (rested still), then the right click.
+        assertEquals(listOf(Gesture.ShapeArmed, Gesture.Click(Button.RIGHT)), out)
+    }
+
+    @Test
+    fun restThenDrawRecognizesShape() {
+        down(0, 600f, 300f)
+        hold(400)
+        assertEquals(listOf(Gesture.ShapeArmed), out)
+        // Draw a "V": down-right then up-right.
+        for (i in 1..10) move(0, 600f + i * 15f, 300f + i * 30f)
+        for (i in 1..10) move(0, 750f + i * 15f, 600f - i * 30f)
+        up(0)
+        assertEquals(Gesture.ShapeDrawn(ShapeCommand.PASTE), out.last())
+        assertTrue(only<Gesture.PointerMove>().isEmpty())
+        assertTrue(only<Gesture.Click>().isEmpty())
+    }
+
+    @Test
+    fun restThenScribbleIsUnrecognized() {
+        down(0, 600f, 300f)
+        hold(400)
+        move(0, 640f, 300f)
+        move(0, 600f, 302f)
+        move(0, 641f, 304f)
+        up(0)
+        assertEquals(Gesture.ShapeDrawn(null), out.last())
+    }
+
+    @Test
+    fun movingWithoutRestingStillMovesPointer() {
+        down(0, 600f, 300f)
+        move(0, 700f, 300f, dt = 100)
+        up(0)
+        assertTrue(only<Gesture.PointerMove>().isNotEmpty())
+        assertTrue(only<Gesture.ShapeDrawn>().isEmpty())
     }
 
     @Test

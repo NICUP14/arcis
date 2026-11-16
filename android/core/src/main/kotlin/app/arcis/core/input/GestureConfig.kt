@@ -10,6 +10,9 @@ data class GestureConfig(
     val tapTimeoutMs: Long = 250,
     val doubleTapTimeoutMs: Long = 300,
     val longPressMs: Long = 550,
+    /** Resting still this long, then moving, draws a shortcut shape instead of moving the pointer. */
+    val shapeHoldMs: Long = 350,
+    val shapesEnabled: Boolean = true,
     /** Height of the bottom-edge strip that starts switch / home / recents gestures. */
     val bottomEdge: Float = 90f,
     /** Width of the right-edge scroll strip (0 disables it). */
