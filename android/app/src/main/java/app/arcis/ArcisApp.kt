@@ -73,6 +73,7 @@ class ArcisApp : Application() {
         hosts = HostManager(this)
         hostTarget = HostTarget(hosts)
         watchHostTarget()
+        watchHostProblems()
         switcher = AppSwitcher(this).also { it.start() }
         phoneApps.onOpened = switcher::noteOpened
         voice = VoiceInput(this)
@@ -101,12 +102,25 @@ class ArcisApp : Application() {
         }
     }
 
+    /** Says so on the glasses when a computer can't be reached or drops, e.g. over Moonlight. */
+    private fun watchHostProblems() {
+        scope.launch {
+            hosts.connection.collect { c ->
+                if (c is HostConnection.Failed) {
+                    ArcisAccessibilityService.instance?.uiOverlay?.flash("${c.name}: ${c.message}", PROBLEM_FLASH_MS)
+                }
+            }
+        }
+    }
+
     private fun showHomeOnScreen() {
         val screen = displays.screen.value ?: return
         GlassesLauncher.showHome(this, screen.displayId)
     }
 
     companion object {
+        private const val PROBLEM_FLASH_MS = 5_000L
+
         lateinit var instance: ArcisApp
             private set
     }

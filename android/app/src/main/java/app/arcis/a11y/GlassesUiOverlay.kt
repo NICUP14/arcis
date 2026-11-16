@@ -120,10 +120,10 @@ class GlassesUiOverlay(service: AccessibilityService, display: Display) {
     }
 
     /** Shows [text] centred for a moment (e.g. the name of the app you switched to). */
-    fun flash(text: String) {
+    fun flash(text: String, durationMs: Long = FLASH_MS) {
         val token = ++flashToken
         flashText = text
-        view.postDelayed({ if (token == flashToken) flashText = null }, FLASH_MS)
+        view.postDelayed({ if (token == flashToken) flashText = null }, durationMs)
     }
 
     @Composable

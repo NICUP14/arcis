@@ -132,7 +132,6 @@ class HostManager(context: Context) {
         disconnect()
         _connection.value = HostConnection.Connecting(host.name)
         scope.launch {
-            var lastError: Throwable? = null
             for (address in AddressOrder.order(host.addresses)) {
                 try {
                     val c = BridgeConnection.open(address, host.port, host.fingerprint, AddressOrder.connectTimeoutMs(address))
@@ -154,14 +153,13 @@ class HostManager(context: Context) {
                     startPing()
                     return@launch
                 } catch (e: Exception) {
-                    lastError = e
                     Log.i(TAG, "connect ${host.name} via $address failed: ${e.message}")
                 }
             }
             val hint = if (!phoneOnTailscale() && host.addresses.any { AddressOrder.kind(it) == AddressOrder.Kind.TAILSCALE }) {
                 "Not reachable. Away from home? Turn on Tailscale on this phone"
             } else {
-                lastError?.message ?: "Not reachable"
+                "Can't reach its Arcis Bridge. Is it running?"
             }
             _connection.value = HostConnection.Failed(host.name, hint)
         }
