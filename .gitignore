@@ -1,0 +1,26 @@
+# Gradle / Android
+.gradle/
+build/
+local.properties
+*.iml
+.idea/
+.kotlin/
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+*.keystore
+*.jks
+
+# Go
+bridge/dist/
+bridge/*.exe
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.vscode/
+
+# Local tool config
+.mcp.json
