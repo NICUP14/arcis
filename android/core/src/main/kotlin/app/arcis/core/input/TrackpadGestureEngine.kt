@@ -362,7 +362,7 @@ class TrackpadGestureEngine(
 
     private fun emitScroll(dx: Float, dy: Float) {
         if (dx == 0f && dy == 0f) return
-        val s = config.scrollSensitivity * if (config.naturalScroll) -1f else 1f
+        val s = config.scrollSensitivity * config.scrollSpeed * if (config.naturalScroll) -1f else 1f
         sink(Gesture.Scroll(dx * s, dy * s))
     }
 

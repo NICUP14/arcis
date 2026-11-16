@@ -18,6 +18,7 @@ class VoiceInput(context: Context) {
             overlay()?.hideDictation()
             overlay()?.flash(message)
         },
+        language = { app.arcis.ArcisApp.instance.controllerPrefs.dictationLanguage.value },
     )
 
     private fun overlay() = ArcisAccessibilityService.instance?.uiOverlay

@@ -111,16 +111,20 @@ class TrackpadView(
             TouchPoint(event.getPointerId(it), event.getX(it), event.getY(it))
         }
         val actionId = event.getPointerId(event.actionIndex)
-        if (event.actionMasked == MotionEvent.ACTION_DOWN) applyPointerSpeed()
+        if (event.actionMasked == MotionEvent.ACTION_DOWN) applySpeeds()
         engine.onTouch(TouchEvent(action, points, actionId, event.eventTime))
         scheduleTimer()
         return true
     }
 
-    /** The speed setting can change on the glasses' Settings screen; read it as a stroke begins. */
-    private fun applyPointerSpeed() {
-        val speed = ArcisApp.instance.controllerPrefs.pointerSpeed.value
-        if (engine.config.pointerSpeed != speed) engine.config = engine.config.copy(pointerSpeed = speed)
+    /** The speed settings can change on the glasses' Settings screen; read them as a stroke begins. */
+    private fun applySpeeds() {
+        val prefs = ArcisApp.instance.controllerPrefs
+        val pointer = prefs.pointerSpeed.value
+        val scroll = prefs.scrollSpeed.value
+        if (engine.config.pointerSpeed != pointer || engine.config.scrollSpeed != scroll) {
+            engine.config = engine.config.copy(pointerSpeed = pointer, scrollSpeed = scroll)
+        }
     }
 
     private fun scheduleTimer() {

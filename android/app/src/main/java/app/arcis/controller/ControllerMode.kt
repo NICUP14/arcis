@@ -14,7 +14,10 @@ enum class ControllerMode {
     UPRIGHT,
 }
 
-/** Persists the last used mode (so Arcis reopens the way you left it) and the pointer speed. */
+/**
+ * Persists the last used mode (so Arcis reopens the way you left it) and the settings:
+ * pointer speed, scroll speed and dictation language.
+ */
 class ControllerPrefs(context: Context) {
     private val prefs = context.getSharedPreferences("controller", Context.MODE_PRIVATE)
     private val _mode = MutableStateFlow(
@@ -34,6 +37,27 @@ class ControllerPrefs(context: Context) {
         prefs.edit().putFloat(KEY_POINTER_SPEED, s).apply()
     }
 
+    private val _scrollSpeed = MutableStateFlow(prefs.getFloat(KEY_SCROLL_SPEED, DEFAULT_POINTER_SPEED))
+
+    /** Multiplier for two-finger and edge scrolling (1 = default), same range and steps as the pointer. */
+    val scrollSpeed: StateFlow<Float> = _scrollSpeed.asStateFlow()
+
+    fun setScrollSpeed(speed: Float) {
+        val s = (Math.round(speed / POINTER_SPEED_STEP) * POINTER_SPEED_STEP).coerceIn(MIN_POINTER_SPEED, MAX_POINTER_SPEED)
+        _scrollSpeed.value = s
+        prefs.edit().putFloat(KEY_SCROLL_SPEED, s).apply()
+    }
+
+    private val _dictationLanguage = MutableStateFlow(prefs.getString(KEY_DICTATION_LANGUAGE, null))
+
+    /** BCP-47 tag for speech-to-text (e.g. "ro-RO"), or null for the phone's language. */
+    val dictationLanguage: StateFlow<String?> = _dictationLanguage.asStateFlow()
+
+    fun setDictationLanguage(tag: String?) {
+        _dictationLanguage.value = tag
+        prefs.edit().putString(KEY_DICTATION_LANGUAGE, tag).apply()
+    }
+
     fun toggle() = set(if (_mode.value == ControllerMode.LANDSCAPE) ControllerMode.UPRIGHT else ControllerMode.LANDSCAPE)
 
     fun set(mode: ControllerMode) {
@@ -44,6 +68,8 @@ class ControllerPrefs(context: Context) {
     companion object {
         private const val KEY_MODE = "mode"
         private const val KEY_POINTER_SPEED = "pointer_speed"
+        private const val KEY_SCROLL_SPEED = "scroll_speed"
+        private const val KEY_DICTATION_LANGUAGE = "dictation_language"
         const val DEFAULT_POINTER_SPEED = 1f
         const val MIN_POINTER_SPEED = 0.25f
         const val MAX_POINTER_SPEED = 3f

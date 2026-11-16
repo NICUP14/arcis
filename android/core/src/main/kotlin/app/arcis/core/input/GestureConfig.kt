@@ -38,6 +38,8 @@ data class GestureConfig(
     /** Pointer pixels per dp of finger travel at most (fast flicks). */
     val maxPointerGain: Float = 10f,
     val scrollSensitivity: Float = 1.2f,
+    /** The user's scroll speed setting: multiplies [scrollSensitivity]. */
+    val scrollSpeed: Float = 1f,
     /** true = content follows the fingers (phone style). */
     val naturalScroll: Boolean = true,
 )
