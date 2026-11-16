@@ -92,10 +92,11 @@ class TrackpadGestureEngine(
         if (nowMs < due) return
         timerAt = null
         when (mode) {
-            Mode.PENDING -> if (!shapeArmed && config.shapesEnabled && !armedForDrag && nowMs < downTime + config.longPressMs) {
+            // Rested still: drawing is armed, with no deadline to start drawing. Lifting
+            // without moving is then a long-press (decided on release).
+            Mode.PENDING -> if (!shapeArmed && config.shapesEnabled && !armedForDrag) {
                 shapeArmed = true
                 sink(Gesture.ShapeArmed)
-                timerAt = downTime + config.longPressMs
             } else {
                 mode = Mode.LONG_PRESSED
                 armedForDrag = false
@@ -283,6 +284,8 @@ class TrackpadGestureEngine(
                     sink(Gesture.Click(Button.LEFT))
                     lastTapUpTime = e.timeMs
                     lastTapX = p.x; lastTapY = p.y
+                } else {
+                    sink(Gesture.Click(Button.RIGHT)) // held still, then lifted: long-press
                 }
             }
             Mode.DRAGGING -> Unit // reset() below ends the drag

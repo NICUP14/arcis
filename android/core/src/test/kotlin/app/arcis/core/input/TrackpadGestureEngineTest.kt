@@ -147,6 +147,18 @@ class TrackpadGestureEngineTest {
     }
 
     @Test
+    fun restingLongerBeforeDrawingStillDrawsShape() {
+        down(0, 600f, 300f)
+        hold(400)
+        hold(800) // people react to the tick slowly: no deadline to start drawing
+        for (i in 1..10) move(0, 600f + i * 15f, 300f + i * 30f)
+        for (i in 1..10) move(0, 750f + i * 15f, 600f - i * 30f)
+        up(0)
+        assertEquals(Gesture.ShapeDrawn(ShapeCommand.PASTE), out.last())
+        assertTrue(only<Gesture.Click>().isEmpty())
+    }
+
+    @Test
     fun restThenScribbleIsUnrecognized() {
         down(0, 600f, 300f)
         hold(400)
