@@ -17,6 +17,7 @@ class InputRouter(private val context: Context) {
     fun handle(gesture: Gesture) {
         if (ArcisApp.instance.switcher.handle(gesture, context)) return
         if (ArcisApp.instance.bluetoothTarget.handle(gesture)) return
+        if (ArcisApp.instance.hostTarget.handle(gesture)) return
         when (gesture) {
             Gesture.Home -> goHome()
             else -> toAccessibility(gesture)

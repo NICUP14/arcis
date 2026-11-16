@@ -1,0 +1,201 @@
+package app.arcis.host
+
+import android.content.Context
+import android.net.nsd.NsdManager
+import android.net.nsd.NsdServiceInfo
+import android.os.Build
+import android.os.SystemClock
+import android.util.Log
+import app.arcis.host.BridgeConnection.Companion.msg
+import app.arcis.host.BridgeConnection.Companion.request
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+/** A bridge seen on the local network. */
+data class FoundHost(val name: String, val address: String, val port: Int, val fingerprintPrefix: String)
+
+sealed interface HostConnection {
+    data object Idle : HostConnection
+    data class Connecting(val name: String) : HostConnection
+    data class Connected(val host: SavedHost, val address: String, val os: String, val latencyMs: Long?) : HostConnection
+    data class Failed(val name: String, val message: String) : HostConnection
+}
+
+/**
+ * Finds Arcis Bridges (mDNS), pairs with them, and keeps one connection to the
+ * computer currently in use. Input methods are fire-and-forget.
+ */
+class HostManager(context: Context) {
+
+    private val appContext = context.applicationContext
+    private val nsd = appContext.getSystemService(NsdManager::class.java)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    val store = HostStore(appContext)
+
+    private val _found = MutableStateFlow<List<FoundHost>>(emptyList())
+    val found: StateFlow<List<FoundHost>> = _found.asStateFlow()
+
+    private val _connection = MutableStateFlow<HostConnection>(HostConnection.Idle)
+    val connection: StateFlow<HostConnection> = _connection.asStateFlow()
+
+    @Volatile
+    private var conn: BridgeConnection? = null
+    private var pingJob: Job? = null
+    private var discovering = false
+
+    // ------------------------------------------------------------------ discovery
+
+    fun startDiscovery() {
+        if (discovering) return
+        discovering = true
+        runCatching { nsd.discoverServices(SERVICE, NsdManager.PROTOCOL_DNS_SD, discoveryListener) }
+            .onFailure { discovering = false; Log.w(TAG, "discovery failed", it) }
+    }
+
+    fun stopDiscovery() {
+        if (!discovering) return
+        discovering = false
+        runCatching { nsd.stopServiceDiscovery(discoveryListener) }
+    }
+
+    private val discoveryListener = object : NsdManager.DiscoveryListener {
+        override fun onDiscoveryStarted(serviceType: String) = Unit
+        override fun onDiscoveryStopped(serviceType: String) = Unit
+        override fun onStartDiscoveryFailed(serviceType: String, errorCode: Int) { discovering = false }
+        override fun onStopDiscoveryFailed(serviceType: String, errorCode: Int) = Unit
+        override fun onServiceLost(info: NsdServiceInfo) {
+            _found.value = _found.value.filterNot { it.name == info.serviceName }
+        }
+
+        @Suppress("DEPRECATION")
+        override fun onServiceFound(info: NsdServiceInfo) {
+            nsd.resolveService(info, object : NsdManager.ResolveListener {
+                override fun onResolveFailed(serviceInfo: NsdServiceInfo, errorCode: Int) = Unit
+                override fun onServiceResolved(r: NsdServiceInfo) {
+                    val address = (if (Build.VERSION.SDK_INT >= 34) r.hostAddresses.firstOrNull() else r.host)
+                        ?.hostAddress ?: return
+                    val fp = r.attributes["fp"]?.let { String(it) }.orEmpty()
+                    val host = FoundHost(r.serviceName, address, r.port, fp)
+                    _found.value = _found.value.filterNot { it.name == host.name } + host
+                    // A paired computer may have a new LAN address: remember it.
+                    store.hosts.value.firstOrNull { fp.isNotEmpty() && it.fingerprint.startsWith(fp) }
+                        ?.let { if (address !in it.addresses) store.addAddress(it.fingerprint, address) }
+                }
+            })
+        }
+    }
+
+    // ------------------------------------------------------------------ pairing / connecting
+
+    /** Pairs with the bridge at [address] using the PIN it shows. Returns the saved host. */
+    suspend fun pair(address: String, port: Int, pin: String, phoneName: String): Result<SavedHost> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val c = BridgeConnection.open(address, port, pinnedFingerprint = null)
+                try {
+                    val reply = c.request(msg("pair", "pin" to pin, "name" to phoneName))
+                    if (reply.optString("t") != "paired") error(reply.optString("msg", "Pairing failed"))
+                    SavedHost(
+                        name = reply.optString("host", address),
+                        addresses = listOf(address),
+                        port = port,
+                        fingerprint = c.fingerprint,
+                        token = reply.getString("token"),
+                    ).also(store::save)
+                } finally {
+                    c.close()
+                }
+            }
+        }
+
+    /** Connects to [host], trying its addresses in order; replaces any current connection. */
+    fun connect(host: SavedHost, phoneName: String) {
+        disconnect()
+        _connection.value = HostConnection.Connecting(host.name)
+        scope.launch {
+            var lastError: Throwable? = null
+            for (address in host.addresses) {
+                try {
+                    val c = BridgeConnection.open(address, host.port, host.fingerprint)
+                    val reply = c.request(msg("hello", "token" to host.token, "name" to phoneName))
+                    if (reply.optString("t") != "welcome") {
+                        c.close()
+                        error(reply.optString("msg", "Refused"))
+                    }
+                    val os = reply.optString("os")
+                    if (os != host.os) store.save(host.copy(os = os))
+                    conn = c
+                    _connection.value = HostConnection.Connected(host.copy(os = os), address, os, null)
+                    c.start(onMessage = ::onMessage, onClosed = { onClosed(c, host) })
+                    startPing()
+                    return@launch
+                } catch (e: Exception) {
+                    lastError = e
+                    Log.i(TAG, "connect ${host.name} via $address failed: ${e.message}")
+                }
+            }
+            _connection.value = HostConnection.Failed(host.name, lastError?.message ?: "Not reachable")
+        }
+    }
+
+    fun disconnect() {
+        pingJob?.cancel()
+        conn?.close()
+        conn = null
+        _connection.value = HostConnection.Idle
+    }
+
+    private fun onClosed(c: BridgeConnection, host: SavedHost) {
+        if (conn !== c) return
+        conn = null
+        pingJob?.cancel()
+        _connection.value = HostConnection.Failed(host.name, "Connection lost")
+    }
+
+    private fun onMessage(m: org.json.JSONObject) {
+        if (m.optString("t") == "pong") {
+            val rtt = SystemClock.elapsedRealtime() - m.optLong("time")
+            (_connection.value as? HostConnection.Connected)?.let { _connection.value = it.copy(latencyMs = rtt) }
+        }
+    }
+
+    private fun startPing() {
+        pingJob?.cancel()
+        pingJob = scope.launch {
+            while (isActive) {
+                send(msg("ping", "time" to SystemClock.elapsedRealtime()))
+                delay(2_000)
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------ input
+
+    val isConnected: Boolean get() = conn != null
+
+    /** True when the connected computer is a Mac (Cmd instead of Ctrl for shortcuts). */
+    val isMac: Boolean get() = (_connection.value as? HostConnection.Connected)?.os == "darwin"
+
+    private fun send(m: org.json.JSONObject) = conn?.send(m)
+
+    fun move(dx: Float, dy: Float) = send(msg("move", "dx" to dx.toDouble(), "dy" to dy.toDouble()))
+    fun button(button: String, down: Boolean) = send(msg("button", "button" to button, "down" to down))
+    fun click(button: String) = send(msg("click", "button" to button))
+    fun scroll(dx: Float, dy: Float) = send(msg("scroll", "dx" to dx.toDouble(), "dy" to dy.toDouble()))
+    fun key(key: String, mods: List<String> = emptyList()) = send(msg("key", "key" to key, "mods" to mods.ifEmpty { null }))
+    fun text(text: String) = send(msg("text", "text" to text))
+
+    private companion object {
+        const val TAG = "ArcisHost"
+        const val SERVICE = "_arcis._tcp"
+    }
+}

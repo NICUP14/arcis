@@ -32,6 +32,15 @@ class VoiceInput(context: Context) {
     private fun deliver(text: String) {
         overlay()?.hideDictation()
         if (text.isBlank()) return
+        val app = app.arcis.ArcisApp.instance
+        if (app.hostTarget.active) {
+            app.hosts.text(text) // computer: typed through the bridge
+            return
+        }
+        if (app.bluetoothTarget.active) {
+            app.hid.type(text) // Bluetooth device: typed as keystrokes
+            return
+        }
         val inserted = ArcisAccessibilityService.instance?.insertText(text) ?: false
         if (!inserted) overlay()?.flash("Select a text field first")
     }

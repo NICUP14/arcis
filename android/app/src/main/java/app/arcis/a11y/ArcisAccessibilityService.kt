@@ -160,6 +160,14 @@ class ArcisAccessibilityService : AccessibilityService() {
         if (dragging) injector?.dragMove(x, y)
     }
 
+    /** Puts the cursor at an absolute position on the external screen (tests, recentering). */
+    fun moveCursorTo(nx: Float, ny: Float) {
+        val s = screen ?: return
+        x = nx.coerceIn(0f, s.widthPx - 1f)
+        y = ny.coerceIn(0f, s.heightPx - 1f)
+        cursor?.moveTo(x, y)
+    }
+
     fun click() = injector?.tap(x, y)
 
     fun longPress() = injector?.longPress(x, y)

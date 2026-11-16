@@ -78,13 +78,27 @@ class MainActivity : ComponentActivity() {
             val screen by displays.screen.collectAsState()
             val a11y by ArcisAccessibilityService.connected.collectAsState()
             val mode by controllerPrefs.mode.collectAsState()
+            val remoteTyping by ArcisApp.instance.remoteTyping.collectAsState()
             val trackpad = screen != null && a11y
-            LaunchedEffect(trackpad, mode) { setControllerWindow(trackpad, mode) }
+            // Typing for a computer needs this window to take the keyboard (upright only).
+            val focusable = !trackpad || (mode == ControllerMode.UPRIGHT && remoteTyping)
+            LaunchedEffect(trackpad, mode, focusable) { setControllerWindow(trackpad, mode, focusable) }
             LaunchedEffect(trackpad) { if (trackpad) askForMicrophone() }
             when {
                 screen == null -> Message("Connect your glasses or an external screen over USB-C")
                 !a11y -> AccessibilitySetup { openAccessibilitySettings() }
-                else -> ControllerScreen(mode, controllerPrefs::toggle, router::handle)
+                else -> ControllerScreen(
+                    mode = mode,
+                    remoteTyping = remoteTyping,
+                    onRemoteText = { edit ->
+                        val hosts = ArcisApp.instance.hosts
+                        repeat(edit.backspaces) { hosts.key("Backspace") }
+                        if (edit.insert.isNotEmpty()) hosts.text(edit.insert)
+                    },
+                    onRemoteEnter = { ArcisApp.instance.hosts.key("Enter") },
+                    onToggleMode = controllerPrefs::toggle,
+                    onGesture = router::handle,
+                )
             }
         }
         handleIntent(intent)
@@ -132,7 +146,7 @@ class MainActivity : ComponentActivity() {
      * external screen, so Back reaches the app shown there, and a text field selected there
      * opens the phone's own keyboard on the phone (Android's IME fallback display).
      */
-    private fun setControllerWindow(trackpad: Boolean, mode: ControllerMode) {
+    private fun setControllerWindow(trackpad: Boolean, mode: ControllerMode, focusable: Boolean) {
         requestedOrientation = when {
             !trackpad -> ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
             mode == ControllerMode.UPRIGHT -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
@@ -140,7 +154,7 @@ class MainActivity : ComponentActivity() {
         }
         // ALT_FOCUSABLE_IM keeps the keyboard layered above this non-focusable window.
         val flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM
-        if (trackpad) window.addFlags(flags) else window.clearFlags(flags)
+        if (focusable) window.clearFlags(flags) else window.addFlags(flags)
     }
 
     /** Speech-to-text (hold volume up) needs the microphone; ask once when controlling starts. */

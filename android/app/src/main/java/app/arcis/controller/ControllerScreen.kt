@@ -27,6 +27,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import app.arcis.core.input.Gesture
+import app.arcis.core.text.TextEdit
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.ImeAction
 import kotlinx.coroutines.delay
 
 private val Hint = Color(0xFF3A3F4A)
@@ -39,7 +49,14 @@ private val ButtonBorder = Color(0xFF2E323C)
  *   appears when a text field is selected on the external screen.
  */
 @Composable
-fun ControllerScreen(mode: ControllerMode, onToggleMode: () -> Unit, onGesture: (Gesture) -> Unit) {
+fun ControllerScreen(
+    mode: ControllerMode,
+    remoteTyping: Boolean,
+    onRemoteText: (TextEdit) -> Unit,
+    onRemoteEnter: () -> Unit,
+    onToggleMode: () -> Unit,
+    onGesture: (Gesture) -> Unit,
+) {
     var last by remember { mutableStateOf("") }
     LaunchedEffect(last) {
         if (last.isNotEmpty()) {
@@ -60,7 +77,8 @@ fun ControllerScreen(mode: ControllerMode, onToggleMode: () -> Unit, onGesture: 
                     onGesture = forward,
                     modifier = Modifier.fillMaxWidth().weight(UPRIGHT_TRACKPAD_WEIGHT),
                 )
-                KeyboardArea(Modifier.fillMaxWidth().weight(1f - UPRIGHT_TRACKPAD_WEIGHT))
+                val area = Modifier.fillMaxWidth().weight(1f - UPRIGHT_TRACKPAD_WEIGHT)
+                if (remoteTyping) RelayArea(area, onRemoteText, onRemoteEnter) else KeyboardArea(area)
             }
         }
         // Faint feedback label, for sighted checks only.
@@ -76,6 +94,42 @@ private fun Trackpad(rightEdgeScroll: Boolean, onGesture: (Gesture) -> Unit, mod
         modifier = modifier,
         factory = { ctx -> TrackpadView(ctx, rightEdgeScroll, onGesture) },
     )
+}
+
+/**
+ * Typing for a computer: a text field on the phone opens the phone keyboard; each change is
+ * sent as Backspaces + new text (TextEdit). The field is cleared now and then.
+ */
+@Composable
+private fun RelayArea(modifier: Modifier, onEdit: (TextEdit) -> Unit, onEnter: () -> Unit) {
+    var text by remember { mutableStateOf("") }
+    val focus = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
+    LaunchedEffect(Unit) {
+        delay(150)
+        focus.requestFocus()
+        keyboard?.show()
+    }
+    Box(modifier.background(Color(0xFF07080A)).padding(16.dp)) {
+        BasicTextField(
+            value = text,
+            onValueChange = { new ->
+                val edit = TextEdit.between(text, new)
+                if (!edit.isEmpty) onEdit(edit)
+                text = if (new.length > 80 && new.endsWith(" ")) "" else new
+            },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+            keyboardActions = KeyboardActions(onSend = { onEnter() }),
+            textStyle = TextStyle(color = Color(0xFFB8BECC), fontSize = 18.sp),
+            cursorBrush = SolidColor(Color(0xFF6EA8FF)),
+            modifier = Modifier.fillMaxWidth().focusRequester(focus),
+            decorationBox = { inner ->
+                if (text.isEmpty()) Text("Typing goes to your computer", color = Hint, fontSize = 16.sp)
+                inner()
+            },
+        )
+    }
 }
 
 @Composable

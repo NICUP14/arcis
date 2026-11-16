@@ -7,6 +7,18 @@ import app.arcis.bt.BluetoothTarget
 import app.arcis.bt.HidPeripheral
 import app.arcis.controller.ControllerPrefs
 import app.arcis.display.ExternalDisplayTracker
+import app.arcis.a11y.ArcisAccessibilityService
+import app.arcis.host.HostConnection
+import app.arcis.host.HostManager
+import app.arcis.host.HostTarget
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.launch
 import app.arcis.glasses.GlassesLauncher
 import app.arcis.input.HardwareKeys
 import app.arcis.input.VoiceInput
@@ -33,6 +45,16 @@ class ArcisApp : Application() {
         private set
     lateinit var bluetoothTarget: BluetoothTarget
         private set
+    lateinit var hosts: HostManager
+        private set
+    lateinit var hostTarget: HostTarget
+        private set
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private val _remoteTyping = MutableStateFlow(false)
+
+    /** True while typed text should go to a computer (Moonlight in front, bridge connected). */
+    val remoteTyping: StateFlow<Boolean> = _remoteTyping.asStateFlow()
 
     override fun onCreate() {
         super.onCreate()
@@ -43,10 +65,29 @@ class ArcisApp : Application() {
         controllerPrefs = ControllerPrefs(this)
         hid = HidPeripheral(this)
         bluetoothTarget = BluetoothTarget(hid)
+        hosts = HostManager(this)
+        hostTarget = HostTarget(hosts)
+        watchHostTarget()
         switcher = AppSwitcher(this).also { it.start() }
         phoneApps.onOpened = switcher::noteOpened
         voice = VoiceInput(this)
         hardwareKeys = HardwareKeys(onHome = ::showHomeOnScreen, voice = voice)
+    }
+
+    /** Moonlight in front + bridge connected = control the computer; its own cursor is in the video. */
+    private fun watchHostTarget() {
+        scope.launch {
+            combine(ArcisAccessibilityService.foregroundPackage, hosts.connection) { pkg, conn ->
+                HostTarget.isMoonlight(pkg) to (conn is HostConnection.Connected)
+            }.collect { (moonlight, connected) ->
+                hostTarget.moonlightInFront = moonlight
+                val active = moonlight && connected
+                if (_remoteTyping.value != active) {
+                    _remoteTyping.value = active
+                    ArcisAccessibilityService.instance?.setCursorVisible(!active)
+                }
+            }
+        }
     }
 
     private fun showHomeOnScreen() {

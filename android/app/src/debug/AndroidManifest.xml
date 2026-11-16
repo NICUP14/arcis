@@ -37,6 +37,14 @@
             android:name=".debug.DebugDictationReceiver"
             android:exported="true" />
 
+        <receiver
+            android:name=".debug.DebugHostTargetReceiver"
+            android:exported="true" />
+
+        <receiver
+            android:name=".debug.DebugCursorReceiver"
+            android:exported="true" />
+
         <activity
             android:name=".debug.SimScreenActivity"
             android:exported="true"

@@ -79,13 +79,21 @@ object GlassesColors {
  * toggles it as a favourite.
  */
 @Composable
-fun GlassesHome(onOpen: (PhoneApp) -> Unit, onBluetooth: () -> Unit) {
+fun GlassesHome(
+    onOpen: (PhoneApp) -> Unit,
+    onBluetooth: () -> Unit,
+    onComputer: (ComputerTile) -> Unit,
+    overlay: (@Composable () -> Unit)? = null,
+) {
     val app = ArcisApp.instance
     val apps by produceState(initialValue = emptyList<PhoneApp>()) {
         value = withContext(Dispatchers.IO) { app.phoneApps.list() }
     }
     val favorites by app.appPrefs.favorites.collectAsState()
     var query by remember { mutableStateOf("") }
+    val savedHosts by app.hosts.store.hosts.collectAsState()
+    val foundHosts by app.hosts.found.collectAsState()
+    val connection by app.hosts.connection.collectAsState()
 
     val favoriteApps = favorites.mapNotNull { pkg -> apps.firstOrNull { it.packageName == pkg } }
     val shown = if (query.isBlank()) apps else apps.filter { it.label.contains(query.trim(), ignoreCase = true) }
@@ -97,6 +105,10 @@ fun GlassesHome(onOpen: (PhoneApp) -> Unit, onBluetooth: () -> Unit) {
             .padding(horizontal = 48.dp, vertical = 24.dp),
     ) {
         StatusBar()
+        if (overlay != null) {
+            overlay()
+            return@Column
+        }
         Spacer(Modifier.height(16.dp))
         SearchField(query) { query = it }
         Spacer(Modifier.height(20.dp))
@@ -119,6 +131,10 @@ fun GlassesHome(onOpen: (PhoneApp) -> Unit, onBluetooth: () -> Unit) {
                 }
             }
             if (query.isBlank()) {
+                item(span = { GridItemSpan(maxLineSpan) }) { SectionTitle("Computers") }
+                items(computerTiles(savedHosts, foundHosts), key = { tileKey(it) }) { tile ->
+                    ComputerTileView(tile, connection) { onComputer(tile) }
+                }
                 item(span = { GridItemSpan(maxLineSpan) }) { SectionTitle("Control another device") }
                 item { ActionTile("Bluetooth", "ᛒ", onBluetooth) }
             }
@@ -176,6 +192,12 @@ private fun AppTile(app: PhoneApp, favorite: Boolean, onOpen: () -> Unit, onTogg
             textAlign = TextAlign.Center,
         )
     }
+}
+
+private fun tileKey(t: ComputerTile): String = when (t) {
+    is ComputerTile.Paired -> "pc:" + t.host.fingerprint
+    is ComputerTile.Found -> "found:" + t.host.name
+    ComputerTile.Add -> "pc:add"
 }
 
 @Composable

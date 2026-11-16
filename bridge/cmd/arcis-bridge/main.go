@@ -29,6 +29,7 @@ var Version = "0.1.0"
 func main() {
 	showVersion := flag.Bool("version", false, "print version and exit")
 	port := flag.Int("port", proto.DefaultPort, "TCP port for phones")
+	bind := flag.String("bind", "", "listen only on this address (e.g. a Tailscale IP or 127.0.0.1); default all")
 	statusPort := flag.Int("status-port", proto.StatusPort, "localhost port of the status page (0 = off)")
 	noMDNS := flag.Bool("no-mdns", false, "don't announce on the local network")
 	configDir := flag.String("config", defaultConfigDir(), "where the certificate and paired phones are stored")
@@ -57,7 +58,7 @@ func main() {
 	}
 
 	srv := &server.Server{Store: store, Input: inj, Cert: cert, HostName: host, Log: logger}
-	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", *port))
+	ln, err := net.Listen("tcp", net.JoinHostPort(*bind, fmt.Sprint(*port)))
 	if err != nil {
 		logger.Fatalf("listen on port %d: %v", *port, err)
 	}

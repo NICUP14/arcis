@@ -32,6 +32,13 @@ class SpokenPunctuationTest {
     }
 
     @Test
+    fun keepsAddressesAndNumbersIntact() {
+        assertEquals("go to example.com", SpokenPunctuation.apply("go to example.com"))
+        assertEquals("127.0.0.1", SpokenPunctuation.apply("127.0.0.1"))
+        assertEquals("it costs 3.50, ok", SpokenPunctuation.apply("it costs 3.50 comma ok"))
+    }
+
+    @Test
     fun joinAddsSpaceAndKeepsCase() {
         assertEquals(" and more", SpokenPunctuation.join("Hello", "and more"))
         assertEquals("And more", SpokenPunctuation.join("", "and more"))

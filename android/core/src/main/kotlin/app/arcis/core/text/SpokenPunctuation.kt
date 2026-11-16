@@ -10,24 +10,26 @@ object SpokenPunctuation {
     private val phrases: List<Pair<Regex, String>> = listOf(
         "new paragraph" to "\n\n",
         "new line" to "\n",
-        "question mark" to "?",
-        "exclamation mark" to "!",
-        "exclamation point" to "!",
-        "full stop" to ".",
-        "period" to ".",
-        "comma" to ",",
-        "colon" to ":",
-        "semicolon" to ";",
-    ).map { (words, symbol) -> Regex("\\b${words.replace(" ", "\\s+")}\\b", RegexOption.IGNORE_CASE) to symbol }
+        "question mark" to "? ",
+        "exclamation mark" to "! ",
+        "exclamation point" to "! ",
+        "full stop" to ". ",
+        "period" to ". ",
+        "comma" to ", ",
+        "colon" to ": ",
+        "semicolon" to "; ",
+    ).map { (words, symbol) ->
+        // Swallow the spaces around the spoken word; the symbol brings its own spacing.
+        Regex("[ \\t]*\\b${words.replace(" ", "\\s+")}\\b[ \\t]*", RegexOption.IGNORE_CASE) to symbol
+    }
 
     fun apply(text: String): String {
         var out = text
-        for ((regex, symbol) in phrases) out = regex.replace(out, symbol)
+        for ((regex, symbol) in phrases) out = regex.replace(out, Regex.escapeReplacement(symbol))
+        // Only spacing produced above is tidied, so "example.com" or "127.0.0.1" stay intact.
         out = out
-            .replace(Regex("[ \\t]+([.,:;?!])"), "$1")          // no space before punctuation
-            .replace(Regex("([.,:;?!])(?=[^\\s.,:;?!])"), "$1 ") // one space after it
-            .replace(Regex("[ \\t]*\\n[ \\t]*"), "\n")         // tidy line breaks
-            .replace(Regex("[ \\t]{2,}"), " ")
+            .replace(Regex(" +\n"), "\n")
+            .replace(Regex(" {2,}"), " ")
         return capitalizeSentences(out.trim(' ', '\t'))
     }
 
@@ -38,7 +40,9 @@ object SpokenPunctuation {
         for (i in sb.indices) {
             val c = sb[i]
             when {
-                c == '.' || c == '?' || c == '!' || c == '\n' -> capNext = true
+                c == '\n' -> capNext = true
+                // Only a real sentence end ("done. Next"), not "example.com" or "3.50".
+                c == '.' || c == '?' || c == '!' -> capNext = i + 1 < sb.length && sb[i + 1].isWhitespace()
                 c.isLetter() -> {
                     if (capNext) sb.setCharAt(i, c.uppercaseChar())
                     capNext = false
