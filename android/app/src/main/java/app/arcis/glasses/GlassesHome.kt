@@ -4,29 +4,58 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.arcis.ArcisApp
+import app.arcis.apps.PhoneApp
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -38,10 +67,26 @@ object GlassesColors {
     val Dim = Color(0xFF8A90A0)
     val Accent = Color(0xFF6EA8FF)
     val Card = Color(0xFF15171C)
+    val CardBorder = Color(0xFF262A33)
 }
 
+/**
+ * Arcis Home on the external screen: status bar, search, favourites and all phone apps.
+ * Click a tile to open the app full screen on this display; long-press (right click)
+ * toggles it as a favourite.
+ */
 @Composable
-fun GlassesHome() {
+fun GlassesHome(onOpen: (PhoneApp) -> Unit) {
+    val app = ArcisApp.instance
+    val apps by produceState(initialValue = emptyList<PhoneApp>()) {
+        value = withContext(Dispatchers.IO) { app.phoneApps.list() }
+    }
+    val favorites by app.appPrefs.favorites.collectAsState()
+    var query by remember { mutableStateOf("") }
+
+    val favoriteApps = favorites.mapNotNull { pkg -> apps.firstOrNull { it.packageName == pkg } }
+    val shown = if (query.isBlank()) apps else apps.filter { it.label.contains(query.trim(), ignoreCase = true) }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -49,17 +94,101 @@ fun GlassesHome() {
             .padding(horizontal = 48.dp, vertical = 24.dp),
     ) {
         StatusBar()
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("Arcis", color = GlassesColors.Text, fontSize = 48.sp, fontWeight = FontWeight.Light)
-                Text(
-                    "Use your phone as the trackpad",
-                    color = GlassesColors.Dim,
-                    fontSize = 18.sp,
-                    modifier = Modifier.padding(top = 8.dp),
-                )
+        Spacer(Modifier.height(16.dp))
+        SearchField(query) { query = it }
+        Spacer(Modifier.height(20.dp))
+        LazyVerticalGrid(
+            columns = GridCells.Adaptive(132.dp),
+            contentPadding = PaddingValues(bottom = 48.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            if (query.isBlank() && favoriteApps.isNotEmpty()) {
+                item(span = { GridItemSpan(maxLineSpan) }) { SectionTitle("Favourites") }
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        items(favoriteApps, key = { it.packageName }) { a ->
+                            AppTile(a, favorite = true, onOpen = { onOpen(a) }) {
+                                app.appPrefs.toggleFavorite(a.packageName)
+                            }
+                        }
+                    }
+                }
+            }
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                SectionTitle(if (query.isBlank()) "Phone apps" else "Results")
+            }
+            items(shown, key = { it.packageName }) { a ->
+                AppTile(a, favorite = a.packageName in favorites, onOpen = { onOpen(a) }) {
+                    app.appPrefs.toggleFavorite(a.packageName)
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun SectionTitle(text: String) {
+    Text(
+        text,
+        color = GlassesColors.Dim,
+        fontSize = 15.sp,
+        fontWeight = FontWeight.Medium,
+        modifier = Modifier.padding(top = 4.dp, bottom = 2.dp),
+    )
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun AppTile(app: PhoneApp, favorite: Boolean, onOpen: () -> Unit, onToggleFavorite: () -> Unit) {
+    val sizePx = with(LocalDensity.current) { 56.dp.roundToPx() }
+    val icon by produceState(initialValue = null as androidx.compose.ui.graphics.ImageBitmap?, app.packageName) {
+        value = withContext(Dispatchers.IO) {
+            ArcisApp.instance.phoneApps.icon(app, sizePx)?.asImageBitmap()
+        }
+    }
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .width(132.dp)
+            .background(GlassesColors.Card, RoundedCornerShape(16.dp))
+            .border(1.dp, if (favorite) GlassesColors.Accent else GlassesColors.CardBorder, RoundedCornerShape(16.dp))
+            .combinedClickable(onClick = onOpen, onLongClick = onToggleFavorite)
+            .padding(vertical = 14.dp, horizontal = 8.dp),
+    ) {
+        Box(Modifier.size(56.dp), contentAlignment = Alignment.Center) {
+            icon?.let { Image(it, contentDescription = null, modifier = Modifier.size(56.dp)) }
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(
+            app.label,
+            color = GlassesColors.Text,
+            fontSize = 14.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
+        )
+    }
+}
+
+@Composable
+private fun SearchField(query: String, onChange: (String) -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth(0.5f)
+            .background(GlassesColors.Card, RoundedCornerShape(24.dp))
+            .border(1.dp, GlassesColors.CardBorder, RoundedCornerShape(24.dp))
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+    ) {
+        if (query.isEmpty()) Text("Search apps", color = GlassesColors.Dim, fontSize = 16.sp)
+        BasicTextField(
+            value = query,
+            onValueChange = onChange,
+            singleLine = true,
+            textStyle = TextStyle(color = GlassesColors.Text, fontSize = 16.sp),
+            cursorBrush = SolidColor(GlassesColors.Accent),
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 }
 
@@ -80,7 +209,11 @@ private fun StatusBar() {
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(time, color = GlassesColors.Text, fontSize = 20.sp)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Arcis", color = GlassesColors.Text, fontSize = 20.sp, fontWeight = FontWeight.Medium)
+            Spacer(Modifier.width(16.dp))
+            Text(time, color = GlassesColors.Dim, fontSize = 18.sp)
+        }
         Text(battery?.let { "Phone $it%" } ?: "", color = GlassesColors.Dim, fontSize = 16.sp)
     }
 }
