@@ -6,7 +6,7 @@ import android.content.Intent
 import app.arcis.ArcisApp
 
 /**
- * Debug-only: press / release push-to-talk (hold volume down) without the real button.
+ * Debug-only: press / release push-to-talk (currently has no on-screen control).
  *
  *   adb shell am broadcast -n app.arcis/.debug.DebugMicReceiver -a start
  *   adb shell am broadcast -n app.arcis/.debug.DebugMicReceiver -a stop

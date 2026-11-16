@@ -54,9 +54,10 @@ sudo modprobe uinput && sudo udevadm control --reload && sudo udevadm trigger
 
 ## Phone as a microphone (headset)
 
-Hold **volume down** while a computer is connected and talk: the phone microphone is
-streamed to the computer, which offers it as a microphone to Discord, Teams, Zoom,
-games... Sound from the computer already plays in the glasses through Moonlight.
+The phone microphone can be streamed to the computer, which offers it as a microphone
+to Discord, Teams, Zoom, games... Sound from the computer already plays in the glasses
+through Moonlight. *There is currently no control on the phone to start it (the volume
+keys are plain volume again); the bridge side below is ready.*
 
 | System | Setup |
 |---|---|

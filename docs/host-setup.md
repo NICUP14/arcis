@@ -17,8 +17,7 @@ Picture and sound come from **Moonlight** (phone) + **Sunshine** or **Apollo**
    Moonlight's menus. While the stream is in front:
    - the trackpad, clicks, scrolling and drawn shortcuts control the computer
      (Ctrl, or Cmd on a Mac);
-   - upright mode: type on the phone keyboard; to dictate, hold the mic button (top right)
-     or volume up;
+   - type with the keyboard button, or hold the mic button to dictate (both bottom right);
    - the computer shows its own pointer, so Arcis hides the glasses cursor.
    Switch away like any app (bottom edge); the bridge stays connected. In Moonlight's
    own menus (computer and app lists) the trackpad works them like any phone app.

@@ -159,7 +159,7 @@ class MainActivity : ComponentActivity() {
         if (focusable) window.clearFlags(flags) else window.addFlags(flags)
     }
 
-    /** Speech-to-text (hold volume up) needs the microphone; ask once when controlling starts. */
+    /** Speech-to-text (mic button) needs the microphone; ask once when controlling starts. */
     private fun askForMicrophone() {
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             micPermission.launch(Manifest.permission.RECORD_AUDIO)

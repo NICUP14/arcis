@@ -21,7 +21,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import app.arcis.glasses.GlassesLauncher
-import app.arcis.input.HardwareKeys
 import app.arcis.input.PushToTalk
 import app.arcis.voice.MicStreamer
 import app.arcis.input.VoiceInput
@@ -39,8 +38,6 @@ class ArcisApp : Application() {
     lateinit var switcher: AppSwitcher
         private set
     lateinit var voice: VoiceInput
-        private set
-    lateinit var hardwareKeys: HardwareKeys
         private set
     lateinit var pushToTalk: PushToTalk
         private set
@@ -78,7 +75,6 @@ class ArcisApp : Application() {
         phoneApps.onOpened = switcher::noteOpened
         voice = VoiceInput(this)
         pushToTalk = PushToTalk(hosts, MicStreamer(this) { pcm -> hosts.sendAudio(pcm) })
-        hardwareKeys = HardwareKeys(onHome = ::showHomeOnScreen, voice = voice, pushToTalk = pushToTalk)
     }
 
     /** Moonlight's stream in front + bridge connected = control the computer; its own cursor is in the video. */
@@ -111,11 +107,6 @@ class ArcisApp : Application() {
                 }
             }
         }
-    }
-
-    private fun showHomeOnScreen() {
-        val screen = displays.screen.value ?: return
-        GlassesLauncher.showHome(this, screen.displayId)
     }
 
     companion object {

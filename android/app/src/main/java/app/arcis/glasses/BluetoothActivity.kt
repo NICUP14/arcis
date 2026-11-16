@@ -205,7 +205,7 @@ class BluetoothActivity : ComponentActivity() {
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            "To leave: swipe up from the bottom edge of the trackpad, or press volume up.",
+            "To leave: swipe up from the bottom edge of the trackpad.",
             color = GlassesColors.Text,
             fontSize = 16.sp,
         )

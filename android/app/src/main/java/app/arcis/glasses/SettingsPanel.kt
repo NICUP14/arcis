@@ -114,7 +114,7 @@ private fun LanguageSetting(tag: String?, onChange: (String?) -> Unit) {
     val index = DictationLanguages.indexOfFirst { it.first == tag }.coerceAtLeast(0)
     fun pick(i: Int) = onChange(DictationLanguages[(i + DictationLanguages.size) % DictationLanguages.size].first)
     Text("Dictation language", color = GlassesColors.Text, fontSize = 17.sp)
-    Text("Speech-to-text (mic button / hold volume up)", color = GlassesColors.Dim, fontSize = 13.sp)
+    Text("Speech-to-text (mic button)", color = GlassesColors.Dim, fontSize = 13.sp)
     Spacer(Modifier.height(6.dp))
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
         StepButton("‹", enabled = true) { pick(index - 1) }

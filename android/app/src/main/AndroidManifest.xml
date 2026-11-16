@@ -11,7 +11,7 @@
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
 
-    <!-- Speech-to-text (hold volume up). -->
+    <!-- Speech-to-text (mic button) and the phone as a computer microphone. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <!-- List launchable apps for the launcher on the external screen; find the speech recognizer. -->

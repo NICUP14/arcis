@@ -51,8 +51,6 @@ class ArcisAccessibilityService : AccessibilityService() {
     private var y = 0f
     private var dragging = false
 
-    /** Hook for hardware keys (volume) used by later features; return true to consume. */
-    var keyHandler: ((KeyEvent) -> Boolean)? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -63,7 +61,6 @@ class ArcisAccessibilityService : AccessibilityService() {
         super.onServiceConnected()
         Log.i(TAG, "service connected")
         instance = this
-        keyHandler = ArcisApp.instance.hardwareKeys::onKey
         _connected.value = true
         scope.launch {
             ArcisApp.instance.displays.screen.collect { attachTo(it) }
@@ -97,8 +94,6 @@ class ArcisAccessibilityService : AccessibilityService() {
     }
 
     override fun onInterrupt() = Unit
-
-    override fun onKeyEvent(event: KeyEvent): Boolean = keyHandler?.invoke(event) ?: false
 
     // ------------------------------------------------------------------ display
 
