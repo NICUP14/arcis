@@ -27,10 +27,20 @@ class AppSwitcher(private val appContext: Context) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val app get() = ArcisApp.instance
     private var homeInFront = true
+    private var bluetoothInFront = false
 
     fun start() {
         scope.launch {
             ArcisAccessibilityService.foregroundPackage.collect { pkg -> onForeground(pkg) }
+        }
+    }
+
+    /** The Bluetooth screen (part of Arcis) came to the front / left. */
+    fun noteBluetoothInFront(inFront: Boolean) {
+        bluetoothInFront = inFront
+        if (inFront) {
+            homeInFront = false
+            recents.onForeground(RecentItem(BLUETOOTH_ID, "Bluetooth"), SystemClock.uptimeMillis())
         }
     }
 
@@ -40,7 +50,7 @@ class AppSwitcher(private val appContext: Context) {
     private fun onForeground(pkg: String?) {
         if (pkg == null || pkg in IGNORED) return
         if (pkg == appContext.packageName) {
-            homeInFront = true
+            if (!bluetoothInFront) homeInFront = true
             return
         }
         homeInFront = false
@@ -109,6 +119,11 @@ class AppSwitcher(private val appContext: Context) {
 
     private fun open(item: RecentItem, caller: Context) {
         val screen = app.displays.screen.value ?: return
+        if (item.id == BLUETOOTH_ID) {
+            GlassesLauncher.showBluetooth(caller, screen.displayId)
+            overlay()?.flash(item.label)
+            return
+        }
         val phoneApp = app.phoneApps.find(item.id) ?: return
         if (app.phoneApps.open(caller, phoneApp, screen.displayId)) overlay()?.flash(item.label)
     }
@@ -121,6 +136,7 @@ class AppSwitcher(private val appContext: Context) {
 
     private companion object {
         const val ICON_PX = 168
+        const val BLUETOOTH_ID = "arcis:bluetooth"
         val IGNORED = setOf("com.android.systemui", "android")
     }
 }

@@ -25,7 +25,12 @@ class GlassesHomeActivity : ComponentActivity() {
             hide(WindowInsetsCompat.Type.systemBars())
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         }
-        setContent { GlassesHome(onOpen = ::open) }
+        setContent {
+            GlassesHome(
+                onOpen = ::open,
+                onBluetooth = { GlassesLauncher.showBluetooth(this, display?.displayId ?: Display.DEFAULT_DISPLAY) },
+            )
+        }
     }
 
     /** Opens a phone app full screen on this same display. */

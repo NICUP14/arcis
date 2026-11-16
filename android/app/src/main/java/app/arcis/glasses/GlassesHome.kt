@@ -8,6 +8,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -78,7 +79,7 @@ object GlassesColors {
  * toggles it as a favourite.
  */
 @Composable
-fun GlassesHome(onOpen: (PhoneApp) -> Unit) {
+fun GlassesHome(onOpen: (PhoneApp) -> Unit, onBluetooth: () -> Unit) {
     val app = ArcisApp.instance
     val apps by produceState(initialValue = emptyList<PhoneApp>()) {
         value = withContext(Dispatchers.IO) { app.phoneApps.list() }
@@ -116,6 +117,10 @@ fun GlassesHome(onOpen: (PhoneApp) -> Unit) {
                         }
                     }
                 }
+            }
+            if (query.isBlank()) {
+                item(span = { GridItemSpan(maxLineSpan) }) { SectionTitle("Control another device") }
+                item { ActionTile("Bluetooth", "ᛒ", onBluetooth) }
             }
             item(span = { GridItemSpan(maxLineSpan) }) {
                 SectionTitle(if (query.isBlank()) "Phone apps" else "Results")
@@ -170,6 +175,26 @@ private fun AppTile(app: PhoneApp, favorite: Boolean, onOpen: () -> Unit, onTogg
             overflow = TextOverflow.Ellipsis,
             textAlign = TextAlign.Center,
         )
+    }
+}
+
+@Composable
+private fun ActionTile(label: String, glyph: String, onClick: () -> Unit) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .width(132.dp)
+            .background(GlassesColors.Card, RoundedCornerShape(16.dp))
+            .border(1.dp, GlassesColors.CardBorder, RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 14.dp, horizontal = 8.dp),
+    ) {
+        Box(
+            Modifier.size(56.dp).background(Color(0xFF1E3A6E), RoundedCornerShape(14.dp)),
+            contentAlignment = Alignment.Center,
+        ) { Text(glyph, color = GlassesColors.Text, fontSize = 28.sp) }
+        Spacer(Modifier.height(8.dp))
+        Text(label, color = GlassesColors.Text, fontSize = 14.sp, maxLines = 1)
     }
 }
 

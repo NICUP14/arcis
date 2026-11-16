@@ -1,6 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- Bluetooth mouse & keyboard (BluetoothHidDevice). -->
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
+
     <!-- Speech-to-text (hold volume up). -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
@@ -42,6 +48,17 @@
             android:launchMode="singleTask"
             android:resizeableActivity="true"
             android:taskAffinity="app.arcis.glasses"
+            android:theme="@style/Theme.Arcis.Glasses" />
+
+        <!-- Bluetooth mouse & keyboard screen on the external screen; its own task / card. -->
+        <activity
+            android:name=".glasses.BluetoothActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|density|keyboard|keyboardHidden|navigation|uiMode"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:resizeableActivity="true"
+            android:taskAffinity="app.arcis.bluetooth"
             android:theme="@style/Theme.Arcis.Glasses" />
 
         <!-- Performs input (taps, scroll, Back, cursor) on the external screen. -->

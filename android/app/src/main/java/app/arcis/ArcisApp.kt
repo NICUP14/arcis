@@ -3,6 +3,9 @@ package app.arcis
 import android.app.Application
 import app.arcis.apps.AppPrefs
 import app.arcis.apps.PhoneApps
+import app.arcis.bt.BluetoothTarget
+import app.arcis.bt.HidPeripheral
+import app.arcis.controller.ControllerPrefs
 import app.arcis.display.ExternalDisplayTracker
 import app.arcis.glasses.GlassesLauncher
 import app.arcis.input.HardwareKeys
@@ -24,6 +27,12 @@ class ArcisApp : Application() {
         private set
     lateinit var hardwareKeys: HardwareKeys
         private set
+    lateinit var controllerPrefs: ControllerPrefs
+        private set
+    lateinit var hid: HidPeripheral
+        private set
+    lateinit var bluetoothTarget: BluetoothTarget
+        private set
 
     override fun onCreate() {
         super.onCreate()
@@ -31,6 +40,9 @@ class ArcisApp : Application() {
         displays = ExternalDisplayTracker(this)
         phoneApps = PhoneApps(this)
         appPrefs = AppPrefs(this)
+        controllerPrefs = ControllerPrefs(this)
+        hid = HidPeripheral(this)
+        bluetoothTarget = BluetoothTarget(hid)
         switcher = AppSwitcher(this).also { it.start() }
         phoneApps.onOpened = switcher::noteOpened
         voice = VoiceInput(this)

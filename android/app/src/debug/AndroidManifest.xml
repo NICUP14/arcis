@@ -19,6 +19,11 @@
             tools:replace="android:exported" />
 
         <activity
+            android:name=".glasses.BluetoothActivity"
+            android:allowEmbedded="true"
+            tools:node="merge" />
+
+        <activity
             android:name=".debug.DebugOpenAppActivity"
             android:exported="true"
             android:excludeFromRecents="true"

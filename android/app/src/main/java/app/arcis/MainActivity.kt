@@ -2,10 +2,12 @@ package app.arcis
 
 import android.Manifest
 import android.app.ActivityOptions
+import android.bluetooth.BluetoothAdapter
 import android.content.Intent
 import android.view.Display
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.view.WindowManager
@@ -48,6 +50,10 @@ class MainActivity : ComponentActivity() {
     private lateinit var router: InputRouter
     private lateinit var controllerPrefs: ControllerPrefs
     private val micPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    private val bluetoothPermission =
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { ArcisApp.instance.hid.start() }
+    private val bluetoothSystemPrompt =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { ArcisApp.instance.hid.start() }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -62,7 +68,7 @@ class MainActivity : ComponentActivity() {
             return
         }
         router = InputRouter(this)
-        controllerPrefs = ControllerPrefs(this)
+        controllerPrefs = ArcisApp.instance.controllerPrefs
         WindowCompat.setDecorFitsSystemWindows(window, false)
         WindowInsetsControllerCompat(window, window.decorView).apply {
             hide(WindowInsetsCompat.Type.systemBars())
@@ -81,6 +87,7 @@ class MainActivity : ComponentActivity() {
                 else -> ControllerScreen(mode, controllerPrefs::toggle, router::handle)
             }
         }
+        handleIntent(intent)
         // Whenever an external screen appears, put Arcis Home on it.
         lifecycleScope.launch {
             var lastShownOn: Int? = null
@@ -90,6 +97,27 @@ class MainActivity : ComponentActivity() {
                 }
                 lastShownOn = screen?.displayId
             }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(intent: Intent?) {
+        if (intent?.action != ACTION_BLUETOOTH_SETUP) return
+        when (intent.getStringExtra(EXTRA_STEP)) {
+            STEP_PERMISSION -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                bluetoothPermission.launch(
+                    arrayOf(Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_ADVERTISE),
+                )
+            }
+            STEP_ENABLE -> bluetoothSystemPrompt.launch(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE))
+            STEP_DISCOVERABLE -> bluetoothSystemPrompt.launch(
+                Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE)
+                    .putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 120),
+            )
         }
     }
 
@@ -120,6 +148,15 @@ class MainActivity : ComponentActivity() {
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             micPermission.launch(Manifest.permission.RECORD_AUDIO)
         }
+    }
+
+    companion object {
+        /** Asked by the glasses' Bluetooth screen: show a Bluetooth system prompt on the phone. */
+        const val ACTION_BLUETOOTH_SETUP = "app.arcis.BLUETOOTH_SETUP"
+        const val EXTRA_STEP = "step"
+        const val STEP_PERMISSION = "permission"
+        const val STEP_ENABLE = "enable"
+        const val STEP_DISCOVERABLE = "discoverable"
     }
 
     private fun openAccessibilitySettings() {
