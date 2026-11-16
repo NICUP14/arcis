@@ -102,14 +102,14 @@ class MainActivity : ComponentActivity() {
             }
         }
         handleIntent(intent)
-        // Whenever an external screen appears, put Arcis Home on it.
+        // Whenever an external screen appears, put Arcis Home on it. Remembered across
+        // controller restarts, so reopening the controller doesn't cover what's playing.
         lifecycleScope.launch {
-            var lastShownOn: Int? = null
             displays.screen.collect { screen ->
-                if (screen != null && screen.displayId != lastShownOn) {
+                if (screen != null && screen.displayId != homeShownOn) {
                     GlassesLauncher.showHome(this@MainActivity, screen.displayId)
                 }
-                lastShownOn = screen?.displayId
+                homeShownOn = screen?.displayId
             }
         }
     }
@@ -171,6 +171,9 @@ class MainActivity : ComponentActivity() {
         const val STEP_PERMISSION = "permission"
         const val STEP_ENABLE = "enable"
         const val STEP_DISCOVERABLE = "discoverable"
+
+        /** The external display Arcis Home was last put on (per app process). */
+        private var homeShownOn: Int? = null
     }
 
     private fun openAccessibilitySettings() {

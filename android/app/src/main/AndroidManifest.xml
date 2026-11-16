@@ -32,9 +32,10 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Arcis">
 
-        <!-- Phone-side controller. -->
+        <!-- Phone-side controller. Handles its own rotation (Upright/Landscape switch). -->
         <activity
             android:name=".MainActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|density|keyboard|keyboardHidden|navigation|uiMode"
             android:exported="true"
             android:launchMode="singleTask">
             <intent-filter>
