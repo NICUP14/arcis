@@ -50,6 +50,7 @@ var linuxKeyByName = map[string]uint16{
 	"Enter": 28, "Backspace": 14, "Escape": 1, "Tab": 15, "Space": 57, "Delete": 111,
 	"Left": 105, "Right": 106, "Up": 103, "Down": 108, "Home": 102, "End": 107,
 	"PageUp": 104, "PageDown": 109,
+	"Meta": 125, "Equal": 13, "Minus": 12,
 }
 
 // US layout: letters and digits.

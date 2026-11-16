@@ -66,6 +66,7 @@ var vkByName = map[string]uint16{
 	"Enter": 0x0D, "Backspace": 0x08, "Escape": 0x1B, "Tab": 0x09, "Space": 0x20, "Delete": 0x2E,
 	"Left": 0x25, "Up": 0x26, "Right": 0x27, "Down": 0x28, "Home": 0x24, "End": 0x23,
 	"PageUp": 0x21, "PageDown": 0x22,
+	"Meta": 0x5B, "Equal": 0xBB, "Minus": 0xBD,
 }
 
 var vkMods = []struct {

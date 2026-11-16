@@ -33,6 +33,7 @@ class TrackpadGestureEngine(
         LONG_PRESSED,   // long-press fired; ignore until up
         TWO_PENDING,    // two fingers down, not moved yet
         TWO_SCROLLING,
+        PINCHING,       // two fingers moving apart / together
         EDGE_SCROLL,
         BOTTOM_PENDING,
         BOTTOM_HORIZONTAL,
@@ -51,6 +52,8 @@ class TrackpadGestureEngine(
     private var lastCentroidX = 0f
     private var lastCentroidY = 0f
     private var twoDownTime = 0L
+    private var twoDownSpread = 0f
+    private var zoomSpread = 0f
     private var maxPointers = 0
 
     private var lastTapUpTime = Long.MIN_VALUE / 2
@@ -146,11 +149,12 @@ class TrackpadGestureEngine(
                     twoDownTime = e.timeMs
                     timerAt = null
                     centroid(e.points).let { (cx, cy) -> lastCentroidX = cx; lastCentroidY = cy }
+                    twoDownSpread = spread(e.points)
                 } else {
                     mode = Mode.IGNORE
                 }
             }
-            mode == Mode.TWO_SCROLLING -> if (count > 2) mode = Mode.IGNORE
+            mode == Mode.TWO_SCROLLING || mode == Mode.PINCHING -> if (count > 2) mode = Mode.IGNORE
             mode == Mode.DRAGGING -> Unit // extra finger while dragging: keep dragging
             else -> if (mode != Mode.IGNORE) {
                 // Fingers added mid-gesture: finish what we were doing cleanly.
@@ -187,6 +191,7 @@ class TrackpadGestureEngine(
             }
             Mode.MOVING, Mode.DRAGGING -> emitPointer(e.points.first(), e.timeMs)
             Mode.SHAPE -> e.points.first().let { shapePoints += Point(it.x, it.y) }
+            Mode.PINCHING -> if (e.points.size >= 2) onPinch(e.points)
             Mode.TWO_PENDING, Mode.TWO_SCROLLING -> {
                 if (e.points.size < 2) return
                 val (cx, cy) = centroid(e.points)
@@ -194,6 +199,14 @@ class TrackpadGestureEngine(
                 val dy = cy - lastCentroidY
                 if (mode == Mode.TWO_PENDING) {
                     // lastCentroid still holds the centroid from when the 2nd finger landed.
+                    // Fingers moving apart/together more than together = pinch, not scroll.
+                    val spreadChange = abs(spread(e.points) - twoDownSpread)
+                    if (spreadChange > config.pinchSlop && spreadChange > hypot(dx, dy)) {
+                        mode = Mode.PINCHING
+                        zoomSpread = twoDownSpread
+                        onPinch(e.points)
+                        return
+                    }
                     if (hypot(dx, dy) <= config.touchSlop) return
                     mode = Mode.TWO_SCROLLING
                 }
@@ -255,7 +268,7 @@ class TrackpadGestureEngine(
         if (remaining > 0) {
             // A finger lifted but others remain.
             when (mode) {
-                Mode.TWO_PENDING, Mode.TWO_SCROLLING -> {
+                Mode.TWO_PENDING, Mode.TWO_SCROLLING, Mode.PINCHING -> {
                     // Wait for all fingers; a two-finger tap is decided on the last UP.
                 }
                 Mode.DRAGGING -> Unit
@@ -365,6 +378,23 @@ class TrackpadGestureEngine(
         val s = config.scrollSensitivity * config.scrollSpeed * if (config.naturalScroll) -1f else 1f
         sink(Gesture.Scroll(dx * s, dy * s))
     }
+
+    /** One zoom step each time the spread grows or shrinks by [GestureConfig.zoomStep]. */
+    private fun onPinch(points: List<TouchPoint>) {
+        val s = spread(points)
+        while (zoomSpread > 0f && s >= zoomSpread * config.zoomStep) {
+            zoomSpread *= config.zoomStep
+            sink(Gesture.Zoom(1))
+        }
+        while (zoomSpread > 0f && s <= zoomSpread / config.zoomStep) {
+            zoomSpread /= config.zoomStep
+            sink(Gesture.Zoom(-1))
+        }
+    }
+
+    /** Distance between the first two fingers. */
+    private fun spread(points: List<TouchPoint>): Float =
+        if (points.size < 2) 0f else hypot(points[0].x - points[1].x, points[0].y - points[1].y)
 
     private fun centroid(points: List<TouchPoint>): Pair<Float, Float> {
         val n = points.size.toFloat()

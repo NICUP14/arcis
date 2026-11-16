@@ -190,6 +190,48 @@ class TrackpadGestureEngineTest {
     }
 
     @Test
+    fun pinchOutZoomsInStepByStep() {
+        down(0, 900f, 500f)
+        down(1, 1100f, 500f, dt = 10) // 200 apart
+        repeat(10) { i ->
+            t += 16
+            fingers[0] = TouchPoint(0, 900f - (i + 1) * 15f, 500f)
+            fingers[1] = TouchPoint(1, 1100f + (i + 1) * 15f, 500f)
+            engine.onTouch(TouchEvent(TouchAction.MOVE, fingers.values.toList(), 0, t))
+        }
+        up(1); up(0)
+        // 200 -> 500 apart: 1.25^4 = 2.44 ≤ 2.5 < 1.25^5
+        assertEquals(List(4) { Gesture.Zoom(1) }, only<Gesture.Zoom>())
+        assertTrue(only<Gesture.Scroll>().isEmpty())
+        assertTrue(Gesture.Back !in out)
+    }
+
+    @Test
+    fun pinchInZoomsOut() {
+        down(0, 700f, 500f)
+        down(1, 1300f, 500f, dt = 10) // 600 apart
+        repeat(10) { i ->
+            t += 16
+            fingers[0] = TouchPoint(0, 700f + (i + 1) * 20f, 500f)
+            fingers[1] = TouchPoint(1, 1300f - (i + 1) * 20f, 500f)
+            engine.onTouch(TouchEvent(TouchAction.MOVE, fingers.values.toList(), 0, t))
+        }
+        up(1); up(0)
+        // 600 -> 200 apart: 600/1.25^4 = 246 ≥ 200 > 600/1.25^5 = 197
+        assertEquals(List(4) { Gesture.Zoom(-1) }, only<Gesture.Zoom>())
+    }
+
+    @Test
+    fun twoFingerDragStillScrolls() {
+        down(0, 900f, 400f)
+        down(1, 1100f, 400f, dt = 10)
+        moveBoth(0f, 200f)
+        up(1); up(0)
+        assertTrue(only<Gesture.Scroll>().isNotEmpty())
+        assertTrue(only<Gesture.Zoom>().isEmpty())
+    }
+
+    @Test
     fun twoFingerTapIsBack() {
         down(0, 500f, 500f)
         down(1, 600f, 500f, dt = 20)

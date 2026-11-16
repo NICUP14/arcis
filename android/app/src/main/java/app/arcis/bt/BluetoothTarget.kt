@@ -7,6 +7,7 @@ import app.arcis.core.input.ShapeCommand
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
@@ -56,22 +57,41 @@ class BluetoothTarget(private val hid: HidPeripheral) {
             }
             Gesture.Back -> hid.key(HidKeys.Stroke(HidKeys.ESCAPE))
             is Gesture.ShapeDrawn -> shortcut(g.command)
+            is Gesture.Zoom -> repeat(abs(g.steps)) {
+                hid.key(HidKeys.Stroke(if (g.steps > 0) HidKeys.EQUAL else HidKeys.MINUS, HidKeys.MOD_CTRL))
+            }
             else -> return false
         }
         return true
     }
 
     private fun shortcut(command: ShapeCommand?) {
-        val ctrl = HidKeys.MOD_CTRL
-        when (command) {
-            ShapeCommand.COPY -> hid.key(HidKeys.Stroke(0x06, ctrl)) // C
-            ShapeCommand.PASTE -> hid.key(HidKeys.Stroke(0x19, ctrl)) // V
-            ShapeCommand.UNDO -> hid.key(HidKeys.Stroke(0x1D, ctrl)) // Z
-            ShapeCommand.ENTER -> hid.key(HidKeys.Stroke(HidKeys.ENTER))
-            ShapeCommand.BACKSPACE -> hid.key(HidKeys.Stroke(HidKeys.BACKSPACE))
-            null -> Unit
+        val stroke = when (command) {
+            ShapeCommand.COPY -> ctrl('C')
+            ShapeCommand.PASTE -> ctrl('V')
+            ShapeCommand.CUT -> ctrl('X')
+            ShapeCommand.UNDO -> ctrl('Z')
+            ShapeCommand.REDO -> ctrl('Y')
+            ShapeCommand.SELECT_ALL -> ctrl('A')
+            ShapeCommand.SAVE -> ctrl('S')
+            ShapeCommand.FIND -> ctrl('F')
+            ShapeCommand.ENTER -> HidKeys.Stroke(HidKeys.ENTER)
+            ShapeCommand.BACKSPACE -> HidKeys.Stroke(HidKeys.BACKSPACE)
+            ShapeCommand.TAB -> HidKeys.Stroke(HidKeys.TAB)
+            ShapeCommand.SPACE -> HidKeys.Stroke(HidKeys.SPACE)
+            ShapeCommand.DELETE -> HidKeys.Stroke(HidKeys.DELETE)
+            ShapeCommand.LEFT -> HidKeys.Stroke(HidKeys.LEFT)
+            ShapeCommand.RIGHT -> HidKeys.Stroke(HidKeys.RIGHT)
+            ShapeCommand.UP -> HidKeys.Stroke(HidKeys.UP)
+            ShapeCommand.DOWN -> HidKeys.Stroke(HidKeys.DOWN)
+            ShapeCommand.SWITCH_WINDOW -> HidKeys.Stroke(HidKeys.TAB, HidKeys.MOD_ALT)
+            ShapeCommand.START_MENU -> HidKeys.Stroke(0, HidKeys.MOD_GUI) // the Windows key on its own
+            null -> null
         }
+        stroke?.let(hid::key)
     }
+
+    private fun ctrl(letter: Char) = HidKeys.Stroke(HidKeys.letter(letter), HidKeys.MOD_CTRL)
 
     private companion object {
         const val POINTER_SCALE = 0.8f

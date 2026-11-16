@@ -4,6 +4,7 @@ import android.content.ComponentName
 import app.arcis.core.input.Button
 import app.arcis.core.input.Gesture
 import app.arcis.core.input.ShapeCommand
+import kotlin.math.abs
 
 /**
  * Sends trackpad gestures to the connected computer (through its Arcis Bridge) while
@@ -32,19 +33,39 @@ class HostTarget(private val hosts: HostManager) {
             is Gesture.Scroll -> hosts.scroll(g.dx / SCROLL_STEP_PX, g.dy / SCROLL_STEP_PX)
             Gesture.Back -> hosts.key("Escape")
             is Gesture.ShapeDrawn -> shortcut(g.command)
+            is Gesture.Zoom -> repeat(abs(g.steps)) { hosts.key(if (g.steps > 0) "Equal" else "Minus", primary()) }
             else -> return false
         }
         return true
     }
 
+    /** Ctrl, or Cmd on a Mac. */
+    private fun primary() = listOf(if (hosts.isMac) "meta" else "ctrl")
+
     private fun shortcut(command: ShapeCommand?) {
-        val mod = listOf(if (hosts.isMac) "meta" else "ctrl")
+        val mod = primary()
+        val mac = hosts.isMac
         when (command) {
             ShapeCommand.COPY -> hosts.key("C", mod)
             ShapeCommand.PASTE -> hosts.key("V", mod)
+            ShapeCommand.CUT -> hosts.key("X", mod)
             ShapeCommand.UNDO -> hosts.key("Z", mod)
+            ShapeCommand.REDO -> if (mac) hosts.key("Z", listOf("meta", "shift")) else hosts.key("Y", mod)
+            ShapeCommand.SELECT_ALL -> hosts.key("A", mod)
+            ShapeCommand.SAVE -> hosts.key("S", mod)
+            ShapeCommand.FIND -> hosts.key("F", mod)
             ShapeCommand.ENTER -> hosts.key("Enter")
             ShapeCommand.BACKSPACE -> hosts.key("Backspace")
+            ShapeCommand.TAB -> hosts.key("Tab")
+            ShapeCommand.SPACE -> hosts.key("Space")
+            ShapeCommand.DELETE -> hosts.key("Delete")
+            ShapeCommand.LEFT -> hosts.key("Left")
+            ShapeCommand.RIGHT -> hosts.key("Right")
+            ShapeCommand.UP -> hosts.key("Up")
+            ShapeCommand.DOWN -> hosts.key("Down")
+            ShapeCommand.SWITCH_WINDOW -> hosts.key("Tab", listOf(if (mac) "meta" else "alt"))
+            // Windows key (Start menu); Spotlight on a Mac.
+            ShapeCommand.START_MENU -> if (mac) hosts.key("Space", listOf("meta")) else hosts.key("Meta")
             null -> Unit
         }
     }

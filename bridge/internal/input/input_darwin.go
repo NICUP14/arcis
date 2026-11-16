@@ -51,6 +51,7 @@ var macKeyByName = map[string]uint16{
 	"Enter": 36, "Backspace": 51, "Escape": 53, "Tab": 48, "Space": 49, "Delete": 117,
 	"Left": 123, "Right": 124, "Down": 125, "Up": 126, "Home": 115, "End": 119,
 	"PageUp": 116, "PageDown": 121,
+	"Meta": 55, "Equal": 24, "Minus": 27,
 }
 
 // ANSI key codes for A..Z and 0..9.

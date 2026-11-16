@@ -149,15 +149,9 @@ class TrackpadView(
         Gesture.RecentsOpenSelected -> HapticFeedbackConstants.CONFIRM
         Gesture.RecentsCloseSelected -> HapticFeedbackConstants.REJECT
         Gesture.ShapeArmed -> HapticFeedbackConstants.CLOCK_TICK
-        // Each shortcut feels different, so you know which one was recognized.
-        is Gesture.ShapeDrawn -> when (g.command) {
-            ShapeCommand.COPY -> HapticFeedbackConstants.CONTEXT_CLICK
-            ShapeCommand.PASTE -> HapticFeedbackConstants.GESTURE_END
-            ShapeCommand.UNDO -> HapticFeedbackConstants.LONG_PRESS
-            ShapeCommand.ENTER -> HapticFeedbackConstants.CONFIRM
-            ShapeCommand.BACKSPACE -> HapticFeedbackConstants.KEYBOARD_TAP
-            null -> HapticFeedbackConstants.REJECT
-        }
+        // A shortcut was recognized (confirm) or not (reject).
+        is Gesture.ShapeDrawn -> if (g.command != null) HapticFeedbackConstants.CONFIRM else HapticFeedbackConstants.REJECT
+        is Gesture.Zoom -> HapticFeedbackConstants.CLOCK_TICK
     }
 
     override fun onDetachedFromWindow() {

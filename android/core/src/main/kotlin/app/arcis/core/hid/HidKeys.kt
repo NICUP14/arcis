@@ -20,6 +20,9 @@ object HidKeys {
     const val LEFT = 0x50
     const val DOWN = 0x51
     const val UP = 0x52
+    const val DELETE = 0x4C // forward delete
+    const val MINUS = 0x2D
+    const val EQUAL = 0x2E // "=" / "+" key
 
     const val KEYBOARD_REPORT_ID = 1
     const val MOUSE_REPORT_ID = 2
@@ -35,6 +38,9 @@ object HidKeys {
     )
 
     /** The key stroke that types [c], or null if it isn't on a US keyboard. */
+    /** Usage code of a letter key, A..Z. */
+    fun letter(c: Char): Int = 0x04 + (c.uppercaseChar() - 'A')
+
     fun strokeFor(c: Char): Stroke? = when (c) {
         in 'a'..'z' -> Stroke(0x04 + (c - 'a'))
         in 'A'..'Z' -> Stroke(0x04 + (c - 'A'), MOD_SHIFT)

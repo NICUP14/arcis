@@ -5,6 +5,7 @@ import "testing"
 func TestNormalizeKey(t *testing.T) {
 	cases := map[string]string{
 		"enter": "Enter", "BACKSPACE": "Backspace", "z": "Z", "7": "7", "pageup": "PageUp",
+		"meta": "Meta", "equal": "Equal", "MINUS": "Minus",
 		"?": "", "F13": "", "": "",
 	}
 	for in, want := range cases {

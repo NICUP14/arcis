@@ -38,6 +38,10 @@ data class GestureConfig(
     /** Pointer pixels per dp of finger travel at most (fast flicks). */
     val maxPointerGain: Float = 10f,
     val scrollSensitivity: Float = 1.2f,
+    /** Change in finger spread that turns a two-finger touch into a pinch (not a scroll). */
+    val pinchSlop: Float = 24f,
+    /** Spread ratio per zoom step (1.25 = fingers 25% further apart → one step in). */
+    val zoomStep: Float = 1.25f,
     /** The user's scroll speed setting: multiplies [scrollSensitivity]. */
     val scrollSpeed: Float = 1f,
     /** true = content follows the fingers (phone style). */

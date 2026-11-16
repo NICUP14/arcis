@@ -38,6 +38,8 @@ func Click(in Injector, button string) error {
 var namedKeys = []string{
 	"Enter", "Backspace", "Escape", "Tab", "Space", "Delete",
 	"Left", "Right", "Up", "Down", "Home", "End", "PageUp", "PageDown",
+	"Meta",           // the Windows / Super / Command key on its own (Start menu)
+	"Equal", "Minus", // with Ctrl/Cmd: zoom in / out
 }
 
 // NormalizeKey returns the canonical key name, or "" if unknown.

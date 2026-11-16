@@ -72,8 +72,21 @@ class ShapeRecognizerTest {
     }
 
     @Test
-    fun rejectsStraightLineAndDots() {
-        assertNull(recognize(stroke(300f, 0f, 0f, 0f to 0.5f, 1f to 0.5f)))
+    fun straightLinesAreArrowKeys() {
+        assertEquals(ShapeCommand.RIGHT, recognize(stroke(300f, 0f, 0f, 0f to 0.5f, 1f to 0.5f)))
+        assertEquals(ShapeCommand.LEFT, recognize(stroke(300f, 0f, 0f, 1f to 0.5f, 0f to 0.5f)))
+        assertEquals(ShapeCommand.UP, recognize(stroke(300f, 0f, 0f, 0.5f to 1f, 0.5f to 0f)))
+        assertEquals(ShapeCommand.DOWN, recognize(stroke(300f, 0f, 0f, 0.5f to 0f, 0.5f to 1f)))
+    }
+
+    @Test
+    fun rejectsDots() {
         assertNull(recognize(listOf(Point(1f, 1f), Point(1f, 1f), Point(1f, 1f), Point(1f, 1f))))
+    }
+
+    @Test
+    fun tabAndBackspaceAreMirrorImages() {
+        assertEquals(ShapeCommand.TAB, recognize(stroke(200f, 0f, 0f, 0f to 0f, 1f to 0.5f, 0f to 1f)))
+        assertEquals(ShapeCommand.SELECT_ALL, recognize(stroke(200f, 0f, 0f, 0f to 1f, 0.5f to 0f, 1f to 1f)))
     }
 }

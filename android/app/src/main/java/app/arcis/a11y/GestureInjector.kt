@@ -38,6 +38,21 @@ class GestureInjector(
 
     fun tap(x: Float, y: Float) = enqueue(single(x, y, x, y, TAP_MS))
 
+    /** Two fingers moving apart (zoom in) or together (zoom out) around (x, y). */
+    fun pinch(x: Float, y: Float, zoomIn: Boolean) {
+        val size = bounds()
+        val far = minOf(PINCH_FAR, x - 1f, size.x - 1f - x).coerceAtLeast(PINCH_NEAR + 20f)
+        val (from, to) = if (zoomIn) PINCH_NEAR to far else far to PINCH_NEAR
+        val left = Path().apply { moveTo(x - from, y); lineTo(x - to, y) }
+        val right = Path().apply { moveTo(x + from, y); lineTo(x + to, y) }
+        enqueue(
+            GestureDescription.Builder().setDisplayId(displayId)
+                .addStroke(GestureDescription.StrokeDescription(left, 0, PINCH_MS))
+                .addStroke(GestureDescription.StrokeDescription(right, 0, PINCH_MS))
+                .build(),
+        )
+    }
+
     fun longPress(x: Float, y: Float) = enqueue(single(x, y, x, y, LONG_PRESS_MS))
 
     /** Swipe the finger by (fingerDx, fingerDy) starting near (x, y). */
@@ -186,6 +201,9 @@ class GestureInjector(
         const val TAG = "ArcisInject"
         const val TAP_MS = 20L
         const val LONG_PRESS_MS = 650L
+        const val PINCH_MS = 220L
+        const val PINCH_NEAR = 60f
+        const val PINCH_FAR = 260f
         const val SEGMENT_MIN_MS = 16L
     }
 }

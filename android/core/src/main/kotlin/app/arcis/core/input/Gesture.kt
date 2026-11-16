@@ -20,6 +20,9 @@ sealed interface Gesture {
     /** Bottom-edge horizontal swipe. */
     data class SwitchApp(val direction: SwitchDirection) : Gesture
 
+    /** Two-finger pinch: +1 per step apart (zoom in), -1 per step together (zoom out). */
+    data class Zoom(val steps: Int) : Gesture
+
     /** Bottom-edge quick swipe up. */
     data object Home : Gesture
 

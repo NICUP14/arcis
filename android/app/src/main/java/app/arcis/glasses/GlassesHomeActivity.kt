@@ -45,8 +45,11 @@ class GlassesHomeActivity : ComponentActivity() {
                     }
                 },
                 onSettings = { settingsOpen = true },
+                onGestures = { gesturesOpen = true },
                 overlay = if (settingsOpen) {
                     { SettingsPanel { settingsOpen = false } }
+                } else if (gesturesOpen) {
+                    { GesturesPanel { gesturesOpen = false } }
                 } else {
                     pairing?.let { req ->
                         {
@@ -65,6 +68,7 @@ class GlassesHomeActivity : ComponentActivity() {
 
     private var pairing by mutableStateOf<PairRequest?>(null)
     private var settingsOpen by mutableStateOf(false)
+    private var gesturesOpen by mutableStateOf(false)
 
     override fun onResume() {
         super.onResume()

@@ -186,6 +186,9 @@ class ArcisAccessibilityService : AccessibilityService() {
     /** Scroll content: positive dy shows content further down (finger swipes up). */
     fun scroll(dx: Float, dy: Float) = injector?.scroll(x, y, -dx, -dy)
 
+    /** Pinch at the cursor: one step in (positive) or out (negative) per unit. */
+    fun zoom(steps: Int) = repeat(kotlin.math.abs(steps)) { injector?.pinch(x, y, zoomIn = steps > 0) }
+
     fun back() = performGlobalAction(GLOBAL_ACTION_BACK)
 
     /**
@@ -231,24 +234,38 @@ class ArcisAccessibilityService : AccessibilityService() {
     var lastCopiedText: String? = null
         private set
 
-    /** Copy / paste / undo / Enter / Backspace on the selected text field of the external screen. */
+    /** A drawn shortcut (copy, paste, keys...) on the selected text field of the external screen. */
     fun performEdit(command: ShapeCommand): EditResult {
         val field = focusedField() ?: return EditResult.NO_FIELD
-        if (command == ShapeCommand.COPY) {
+        if (command == ShapeCommand.COPY || command == ShapeCommand.CUT) {
             lastCopiedText = if (field.start == field.end) field.text else field.text.substring(field.start, field.end)
         }
         val ic = connection()
         if (ic != null) {
             // Android 13+: real key events and menu actions, so the keyboard stays in sync.
+            val ctrl = KeyEvent.META_CTRL_ON or KeyEvent.META_CTRL_LEFT_ON
             when (command) {
                 ShapeCommand.COPY -> {
                     if (field.start == field.end) ic.performContextMenuAction(android.R.id.selectAll)
                     ic.performContextMenuAction(android.R.id.copy)
                 }
                 ShapeCommand.PASTE -> ic.performContextMenuAction(android.R.id.paste)
-                ShapeCommand.UNDO -> ic.key(KeyEvent.KEYCODE_Z, KeyEvent.META_CTRL_ON or KeyEvent.META_CTRL_LEFT_ON)
+                ShapeCommand.CUT -> ic.performContextMenuAction(android.R.id.cut)
+                ShapeCommand.UNDO -> ic.key(KeyEvent.KEYCODE_Z, ctrl)
+                ShapeCommand.REDO -> ic.key(KeyEvent.KEYCODE_Z, ctrl or KeyEvent.META_SHIFT_ON or KeyEvent.META_SHIFT_LEFT_ON)
+                ShapeCommand.SELECT_ALL -> ic.performContextMenuAction(android.R.id.selectAll)
+                ShapeCommand.SAVE -> ic.key(KeyEvent.KEYCODE_S, ctrl)
+                ShapeCommand.FIND -> ic.key(KeyEvent.KEYCODE_F, ctrl)
                 ShapeCommand.ENTER -> ic.key(KeyEvent.KEYCODE_ENTER)
                 ShapeCommand.BACKSPACE -> ic.key(KeyEvent.KEYCODE_DEL)
+                ShapeCommand.TAB -> ic.key(KeyEvent.KEYCODE_TAB)
+                ShapeCommand.SPACE -> ic.commitText(" ", 1, null)
+                ShapeCommand.DELETE -> ic.key(KeyEvent.KEYCODE_FORWARD_DEL)
+                ShapeCommand.LEFT -> ic.key(KeyEvent.KEYCODE_DPAD_LEFT)
+                ShapeCommand.RIGHT -> ic.key(KeyEvent.KEYCODE_DPAD_RIGHT)
+                ShapeCommand.UP -> ic.key(KeyEvent.KEYCODE_DPAD_UP)
+                ShapeCommand.DOWN -> ic.key(KeyEvent.KEYCODE_DPAD_DOWN)
+                ShapeCommand.SWITCH_WINDOW, ShapeCommand.START_MENU -> return EditResult.UNSUPPORTED
             }
             return EditResult.DONE
         }
@@ -266,7 +283,20 @@ class ArcisAccessibilityService : AccessibilityService() {
                 field.start > 0 -> field.copy(start = field.start - 1).replaceSelection("")
                 else -> true
             }
-            ShapeCommand.UNDO -> return EditResult.UNSUPPORTED
+            ShapeCommand.CUT -> {
+                if (field.start == field.end) field.select(0, field.text.length)
+                node.performAction(AccessibilityNodeInfo.ACTION_CUT)
+            }
+            ShapeCommand.SELECT_ALL -> field.select(0, field.text.length)
+            ShapeCommand.SPACE -> field.replaceSelection(" ")
+            ShapeCommand.DELETE -> when {
+                field.start != field.end -> field.replaceSelection("")
+                field.end < field.text.length -> field.copy(end = field.end + 1).replaceSelection("")
+                else -> true
+            }
+            ShapeCommand.LEFT -> (field.start - 1).coerceAtLeast(0).let { field.select(it, it) }
+            ShapeCommand.RIGHT -> (field.end + 1).coerceAtMost(field.text.length).let { field.select(it, it) }
+            else -> return EditResult.UNSUPPORTED // undo, redo, Ctrl keys, Tab, up/down need Android 13
         }
         return if (ok) EditResult.DONE else EditResult.UNSUPPORTED
     }

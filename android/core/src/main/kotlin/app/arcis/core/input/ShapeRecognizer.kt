@@ -1,16 +1,41 @@
 package app.arcis.core.input
 
+import kotlin.math.abs
+import kotlin.math.atan2
 import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.sqrt
 
-/** Commands that can be drawn on the trackpad. */
+/**
+ * Commands that can be drawn on the trackpad. Easy to guess:
+ * - a key is drawn as the symbol on the key (< Backspace, > Tab, ↵ Enter, ␣ Space, arrows);
+ * - a shortcut is drawn as the letter pressed with Ctrl (C copy, V paste, X cut...).
+ */
 enum class ShapeCommand(val shape: String) {
+    // Shortcuts: the letter used with Ctrl (Cmd on a Mac).
     COPY("C"),
     PASTE("V"),
+    CUT("X"),
     UNDO("Z"),
+    REDO("Y"),
+    SELECT_ALL("A"),
+    SAVE("S"),
+    FIND("F"),
+
+    // Keys: the symbol on the key.
     ENTER("↵"),
     BACKSPACE("<"),
+    TAB(">"),
+    SPACE("␣"),
+    DELETE("D"),
+    LEFT("←"),
+    RIGHT("→"),
+    UP("↑"),
+    DOWN("↓"),
+
+    // Windows: Alt+Tab and the Windows key (Start menu).
+    SWITCH_WINDOW("T"),
+    START_MENU("W"),
 }
 
 data class Point(val x: Float, val y: Float)
@@ -18,38 +43,106 @@ data class Point(val x: Float, val y: Float)
 /**
  * Small unistroke recognizer in the spirit of the "$1 recognizer": resample, scale to a
  * square, centre, then compare point-to-point with fixed templates. Deliberately NOT
- * rotation-invariant, so "V" and "<" stay different. Deterministic, no learning.
+ * rotation-invariant, so "V", "∧", "<" and ">" stay different. Straight strokes are
+ * recognised separately as the arrow keys. Deterministic, no learning.
  */
-class ShapeRecognizer(private val minScore: Float = 0.78f) {
+class ShapeRecognizer(
+    private val minScore: Float = 0.78f,
+    /** The best match must beat the best other command by this much, or nothing is done. */
+    private val minMargin: Float = 0.02f,
+) {
 
     private val templates: Map<ShapeCommand, List<List<Point>>> = mapOf(
         // C: start top-right, sweep counter-clockwise round the left, end bottom-right.
         ShapeCommand.COPY to listOf(arc(startDeg = -45f, endDeg = -315f)),
         // V: top-left down to bottom-middle, up to top-right.
         ShapeCommand.PASTE to listOf(poly(0f to 0f, 0.5f to 1f, 1f to 0f)),
+        // X in one stroke: diagonal, up the side, other diagonal (either way round).
+        ShapeCommand.CUT to listOf(
+            poly(0f to 0f, 1f to 1f, 1f to 0f, 0f to 1f),
+            poly(1f to 0f, 0f to 1f, 0f to 0f, 1f to 1f),
+        ),
         // Z: right along the top, diagonal down-left, right along the bottom.
         ShapeCommand.UNDO to listOf(poly(0f to 0f, 1f to 0f, 0f to 1f, 1f to 1f)),
+        // Y: left arm to the centre, up to the right arm's tip, back to the centre, down.
+        ShapeCommand.REDO to listOf(poly(0f to 0f, 0.5f to 0.5f, 1f to 0f, 0.5f to 0.5f, 0.5f to 1f)),
+        // A as a peak (∧): up from bottom-left to the top, down to bottom-right.
+        ShapeCommand.SELECT_ALL to listOf(poly(0f to 1f, 0.5f to 0f, 1f to 1f)),
+        // S: from the top-right, round to the left, across the middle, round to the bottom-left.
+        ShapeCommand.SAVE to listOf(
+            poly(
+                0.9f to 0.12f, 0.6f to 0f, 0.25f to 0.03f, 0.08f to 0.2f, 0.25f to 0.42f,
+                0.75f to 0.58f, 0.92f to 0.8f, 0.75f to 0.97f, 0.4f to 1f, 0.1f to 0.88f,
+            ),
+        ),
+        // F: along the top from the right, then down the left side (or up, then along the top).
+        ShapeCommand.FIND to listOf(
+            poly(1f to 0f, 0f to 0f, 0f to 1f),
+            poly(0f to 1f, 0f to 0f, 1f to 0f),
+        ),
         // Enter: down, then left (like the ↵ key).
         ShapeCommand.ENTER to listOf(poly(1f to 0f, 1f to 1f, 0f to 1f)),
         // Backspace: "<" from top-right to the left point to bottom-right.
         ShapeCommand.BACKSPACE to listOf(poly(1f to 0f, 0f to 0.5f, 1f to 1f)),
+        // Tab: ">" from top-left to the right point to bottom-left.
+        ShapeCommand.TAB to listOf(poly(0f to 0f, 1f to 0.5f, 0f to 1f)),
+        // Space: a flat cup (␣): down, across, up (a deeper cup counts too).
+        ShapeCommand.SPACE to listOf(
+            poly(0f to 0f, 0f to 0.45f, 1f to 0.45f, 1f to 0f),
+            poly(0f to 0f, 0f to 1f, 1f to 1f, 1f to 0f),
+        ),
+        // D: down the left side, then the bow round to the right and back to the top.
+        ShapeCommand.DELETE to listOf(
+            poly(0f to 0f, 0f to 1f, 0.55f to 0.95f, 0.88f to 0.75f, 1f to 0.5f, 0.88f to 0.25f, 0.55f to 0.05f, 0f to 0f),
+        ),
+        // T: across the top, then down from the end like a 7 (or from the middle, like a T).
+        ShapeCommand.SWITCH_WINDOW to listOf(
+            poly(0f to 0f, 1f to 0f, 1f to 1f),
+            poly(0f to 0f, 1f to 0f, 0.5f to 0f, 0.5f to 1f),
+        ),
+        // W: down, up, down, up.
+        ShapeCommand.START_MENU to listOf(poly(0f to 0f, 0.25f to 1f, 0.5f to 0.35f, 0.75f to 1f, 1f to 0f)),
     ).mapValues { (_, list) -> list.map(::normalize) }
 
     data class Result(val command: ShapeCommand, val score: Float)
 
-    /** Best match, or null if the stroke is too short or nothing is close enough. */
+    /** Best match, or null if the stroke is too short, ambiguous or nothing is close enough. */
     fun recognize(stroke: List<Point>): Result? {
         if (stroke.size < 4 || pathLength(stroke) < 1f) return null
+        straightLine(stroke)?.let { return it }
         val candidate = normalize(stroke)
-        var best: Result? = null
+        val best = HashMap<ShapeCommand, Float>()
         for ((command, variants) in templates) {
             for (t in variants) {
-                val d = pathDistance(candidate, t)
-                val score = 1f - d / HALF_DIAGONAL
-                if (best == null || score > best.score) best = Result(command, score)
+                val score = 1f - pathDistance(candidate, t) / HALF_DIAGONAL
+                if (score > (best[command] ?: -1f)) best[command] = score
             }
         }
-        return best?.takeIf { it.score >= minScore }
+        val ranked = best.entries.sortedByDescending { it.value }
+        val top = ranked.firstOrNull() ?: return null
+        val runnerUp = ranked.getOrNull(1)?.value ?: -1f
+        if (top.value < minScore || top.value - runnerUp < minMargin) return null
+        return Result(top.key, top.value)
+    }
+
+    /** A (nearly) straight stroke is an arrow key in its direction; diagonals are not. */
+    private fun straightLine(stroke: List<Point>): Result? {
+        val first = stroke.first()
+        val last = stroke.last()
+        val dx = last.x - first.x
+        val dy = last.y - first.y
+        val span = hypot(dx, dy)
+        val straightness = span / pathLength(stroke)
+        if (straightness < STRAIGHTNESS) return null
+        val angle = Math.toDegrees(atan2(dy.toDouble(), dx.toDouble())) // y points down
+        val command = when {
+            abs(angle) <= AXIS_TOLERANCE -> ShapeCommand.RIGHT
+            abs(angle) >= 180 - AXIS_TOLERANCE -> ShapeCommand.LEFT
+            abs(angle - 90) <= AXIS_TOLERANCE -> ShapeCommand.DOWN
+            abs(angle + 90) <= AXIS_TOLERANCE -> ShapeCommand.UP
+            else -> return null
+        }
+        return Result(command, straightness)
     }
 
     private fun normalize(points: List<Point>): List<Point> {
@@ -101,6 +194,12 @@ class ShapeRecognizer(private val minScore: Float = 0.78f) {
         const val N = 64
         const val SQUARE = 250f
         val HALF_DIAGONAL = 0.5f * sqrt(2f * SQUARE * SQUARE)
+
+        /** Straight-line distance / drawn length above which a stroke counts as a line. */
+        const val STRAIGHTNESS = 0.93f
+
+        /** How far (degrees) a line may tilt from horizontal/vertical and still be an arrow. */
+        const val AXIS_TOLERANCE = 25.0
 
         fun poly(vararg corners: Pair<Float, Float>): List<Point> {
             val pts = mutableListOf<Point>()
