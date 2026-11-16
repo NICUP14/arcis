@@ -34,6 +34,10 @@ see what's in front there. The overlay display is drawn as a floating window on 
 that takes touches starting inside it (it moves/resizes): start trackpad swipes outside
 it, and always pass `-d 0`, otherwise `input` may target the focused overlay display.
 
+To check how Arcis tells Moonlight's stream from its menus on displays accessibility does
+list (the phone itself, real glasses), open either on the phone and run
+`adb shell am broadcast -n app.arcis/.debug.DebugScreenProbeReceiver; adb logcat -s ArcisProbe`.
+
 ## Accessibility service during automated tests
 
 Android suspends all accessibility services while a UiAutomation session is connected

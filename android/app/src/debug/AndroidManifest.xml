@@ -49,6 +49,10 @@
             android:name=".debug.DebugMicReceiver"
             android:exported="true" />
 
+        <receiver
+            android:name=".debug.DebugScreenProbeReceiver"
+            android:exported="true" />
+
         <activity
             android:name=".debug.SimScreenActivity"
             android:exported="true"

@@ -56,11 +56,8 @@ class HostTarget(private val hosts: HostManager) {
         /** Moonlight and its forks (Artemis etc.) share this package prefix. */
         fun isMoonlight(pkg: String?): Boolean = pkg?.startsWith("com.limelight") == true
 
-        /** Moonlight's streaming screen; its forks keep the class name. */
-        private const val STREAM_ACTIVITY = "com.limelight.Game"
-
         /** True while Moonlight's stream (not its menus) is in front. */
         fun isMoonlightStream(pkg: String?, activity: ComponentName?): Boolean =
-            activity != null && isMoonlight(pkg) && activity.packageName == pkg && activity.className == STREAM_ACTIVITY
+            activity != null && isMoonlight(pkg) && activity.packageName == pkg && activity.className == Moonlight.STREAM_ACTIVITY
     }
 }

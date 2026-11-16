@@ -19,6 +19,8 @@ import app.arcis.ArcisApp
 import app.arcis.core.input.ShapeCommand
 import app.arcis.core.text.SpokenPunctuation
 import app.arcis.display.ExternalScreen
+import app.arcis.host.HostTarget
+import app.arcis.host.Moonlight
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -339,7 +341,22 @@ class ArcisAccessibilityService : AccessibilityService() {
         val top = windows
             .filter { it.type == AccessibilityWindowInfo.TYPE_APPLICATION }
             .maxByOrNull { it.layer }
-        top?.root?.packageName?.toString()?.let(::setForeground)
+        val root = top?.root ?: return
+        val pkg = root.packageName?.toString() ?: return
+        setForeground(pkg)
+        if (HostTarget.isMoonlight(pkg)) noteMoonlightScreen(pkg, root)
+    }
+
+    /**
+     * Which Moonlight screen is showing, read from its window: the activity event can be
+     * missed (e.g. other windows changing at the same moment when a stream starts).
+     */
+    private fun noteMoonlightScreen(pkg: String, root: AccessibilityNodeInfo) {
+        val current = _foregroundActivity.value
+        val wasStream = current?.packageName == pkg && current.className == Moonlight.STREAM_ACTIVITY
+        val isStream = Moonlight.isStream(root)
+        if (isStream && !wasStream) _foregroundActivity.value = ComponentName(pkg, Moonlight.STREAM_ACTIVITY)
+        if (!isStream && wasStream) _foregroundActivity.value = null
     }
 
     /**
