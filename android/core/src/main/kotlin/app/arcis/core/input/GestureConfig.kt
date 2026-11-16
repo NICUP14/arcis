@@ -29,12 +29,14 @@ data class GestureConfig(
     val recentsCloseDistance: Float = 220f,
     /** Screen density (surface pixels per dp); pointer speed is measured in dp so it feels the same on every phone. */
     val density: Float = 1f,
+    /** The user's pointer speed setting: multiplies the whole curve below. */
+    val pointerSpeed: Float = 1f,
     /** Pointer pixels per dp of finger travel when moving slowly. */
-    val pointerSensitivity: Float = 1.5f,
+    val pointerSensitivity: Float = 2f,
     /** Extra gain per dp/ms of finger speed (pointer acceleration). */
     val pointerAcceleration: Float = 1.5f,
     /** Pointer pixels per dp of finger travel at most (fast flicks). */
-    val maxPointerGain: Float = 8f,
+    val maxPointerGain: Float = 10f,
     val scrollSensitivity: Float = 1.2f,
     /** true = content follows the fingers (phone style). */
     val naturalScroll: Boolean = true,

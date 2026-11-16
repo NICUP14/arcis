@@ -44,11 +44,16 @@ class GlassesHomeActivity : ComponentActivity() {
                         ComputerTile.Add -> pairing = PairRequest(null)
                     }
                 },
-                overlay = pairing?.let { req ->
-                    {
-                        PairPanel(req.found) { saved ->
-                            pairing = null
-                            saved?.let(::openComputer)
+                onSettings = { settingsOpen = true },
+                overlay = if (settingsOpen) {
+                    { SettingsPanel { settingsOpen = false } }
+                } else {
+                    pairing?.let { req ->
+                        {
+                            PairPanel(req.found) { saved ->
+                                pairing = null
+                                saved?.let(::openComputer)
+                            }
                         }
                     }
                 },
@@ -59,6 +64,7 @@ class GlassesHomeActivity : ComponentActivity() {
     private data class PairRequest(val found: FoundHost?)
 
     private var pairing by mutableStateOf<PairRequest?>(null)
+    private var settingsOpen by mutableStateOf(false)
 
     override fun onResume() {
         super.onResume()

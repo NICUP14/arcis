@@ -12,6 +12,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.WindowInsets
 import androidx.core.view.WindowInsetsCompat
+import app.arcis.ArcisApp
 import app.arcis.core.input.Gesture
 import app.arcis.core.input.GestureConfig
 import app.arcis.core.input.ShapeCommand
@@ -110,9 +111,16 @@ class TrackpadView(
             TouchPoint(event.getPointerId(it), event.getX(it), event.getY(it))
         }
         val actionId = event.getPointerId(event.actionIndex)
+        if (event.actionMasked == MotionEvent.ACTION_DOWN) applyPointerSpeed()
         engine.onTouch(TouchEvent(action, points, actionId, event.eventTime))
         scheduleTimer()
         return true
+    }
+
+    /** The speed setting can change on the glasses' Settings screen; read it as a stroke begins. */
+    private fun applyPointerSpeed() {
+        val speed = ArcisApp.instance.controllerPrefs.pointerSpeed.value
+        if (engine.config.pointerSpeed != speed) engine.config = engine.config.copy(pointerSpeed = speed)
     }
 
     private fun scheduleTimer() {

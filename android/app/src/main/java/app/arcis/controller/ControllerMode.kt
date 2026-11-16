@@ -14,7 +14,7 @@ enum class ControllerMode {
     UPRIGHT,
 }
 
-/** Persists the last used mode so Arcis reopens the way you left it. */
+/** Persists the last used mode (so Arcis reopens the way you left it) and the pointer speed. */
 class ControllerPrefs(context: Context) {
     private val prefs = context.getSharedPreferences("controller", Context.MODE_PRIVATE)
     private val _mode = MutableStateFlow(
@@ -23,6 +23,17 @@ class ControllerPrefs(context: Context) {
     )
     val mode: StateFlow<ControllerMode> = _mode.asStateFlow()
 
+    private val _pointerSpeed = MutableStateFlow(prefs.getFloat(KEY_POINTER_SPEED, DEFAULT_POINTER_SPEED))
+
+    /** Multiplier for trackpad pointer movement (1 = default), [MIN_POINTER_SPEED]..[MAX_POINTER_SPEED]. */
+    val pointerSpeed: StateFlow<Float> = _pointerSpeed.asStateFlow()
+
+    fun setPointerSpeed(speed: Float) {
+        val s = (Math.round(speed / POINTER_SPEED_STEP) * POINTER_SPEED_STEP).coerceIn(MIN_POINTER_SPEED, MAX_POINTER_SPEED)
+        _pointerSpeed.value = s
+        prefs.edit().putFloat(KEY_POINTER_SPEED, s).apply()
+    }
+
     fun toggle() = set(if (_mode.value == ControllerMode.LANDSCAPE) ControllerMode.UPRIGHT else ControllerMode.LANDSCAPE)
 
     fun set(mode: ControllerMode) {
@@ -30,7 +41,12 @@ class ControllerPrefs(context: Context) {
         prefs.edit().putString(KEY_MODE, mode.name).apply()
     }
 
-    private companion object {
-        const val KEY_MODE = "mode"
+    companion object {
+        private const val KEY_MODE = "mode"
+        private const val KEY_POINTER_SPEED = "pointer_speed"
+        const val DEFAULT_POINTER_SPEED = 1f
+        const val MIN_POINTER_SPEED = 0.25f
+        const val MAX_POINTER_SPEED = 3f
+        const val POINTER_SPEED_STEP = 0.25f
     }
 }

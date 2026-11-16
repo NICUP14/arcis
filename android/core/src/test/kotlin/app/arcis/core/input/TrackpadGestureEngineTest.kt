@@ -109,6 +109,14 @@ class TrackpadGestureEngineTest {
     }
 
     @Test
+    fun pointerSpeedSettingScalesMovement() {
+        assertEquals(2f * engine.pointerGain(1f), engine.copyWithSpeed(2f).pointerGain(1f), 1e-4f)
+    }
+
+    private fun TrackpadGestureEngine.copyWithSpeed(speed: Float) =
+        TrackpadGestureEngine(2000f, 1000f, config.copy(pointerSpeed = speed)) {}
+
+    @Test
     fun fasterFingerGetsMoreGain() {
         assertTrue(engine.pointerGain(3f) > engine.pointerGain(0.2f))
         assertTrue(engine.pointerGain(1000f) <= engine.config.maxPointerGain)

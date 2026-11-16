@@ -357,7 +357,7 @@ class TrackpadGestureEngine(
     }
 
     /** Linear acceleration: faster finger = proportionally larger pointer travel. */
-    internal fun pointerGain(speedDpPerMs: Float): Float =
+    internal fun pointerGain(speedDpPerMs: Float): Float = config.pointerSpeed *
         min(config.pointerSensitivity * (1f + config.pointerAcceleration * speedDpPerMs), config.maxPointerGain)
 
     private fun emitScroll(dx: Float, dy: Float) {

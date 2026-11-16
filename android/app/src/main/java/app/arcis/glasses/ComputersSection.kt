@@ -181,7 +181,7 @@ private fun Field(label: String, value: String, type: KeyboardType, onChange: (S
 }
 
 @Composable
-private fun Button(label: String, enabled: Boolean, onClick: () -> Unit) {
+internal fun Button(label: String, enabled: Boolean, onClick: () -> Unit) {
     Box(
         Modifier
             .background(if (enabled) Color(0xFF1E3A6E) else GlassesColors.Card, RoundedCornerShape(12.dp))

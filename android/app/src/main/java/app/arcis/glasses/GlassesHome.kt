@@ -83,6 +83,7 @@ fun GlassesHome(
     onOpen: (PhoneApp) -> Unit,
     onBluetooth: () -> Unit,
     onComputer: (ComputerTile) -> Unit,
+    onSettings: () -> Unit,
     overlay: (@Composable () -> Unit)? = null,
 ) {
     val app = ArcisApp.instance
@@ -137,6 +138,8 @@ fun GlassesHome(
                 }
                 item(span = { GridItemSpan(maxLineSpan) }) { SectionTitle("Control another device") }
                 item { ActionTile("Bluetooth", "ᛒ", onBluetooth) }
+                item(span = { GridItemSpan(maxLineSpan) }) { SectionTitle("Arcis") }
+                item { ActionTile("Settings", "⚙", onSettings) }
             }
             item(span = { GridItemSpan(maxLineSpan) }) {
                 SectionTitle(if (query.isBlank()) "Phone apps" else "Results")
