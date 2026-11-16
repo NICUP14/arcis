@@ -2,13 +2,16 @@ package app.arcis.a11y
 
 import android.accessibilityservice.AccessibilityService
 import android.graphics.PointF
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
 import app.arcis.ArcisApp
+import app.arcis.core.text.SpokenPunctuation
 import app.arcis.display.ExternalScreen
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -52,6 +55,7 @@ class ArcisAccessibilityService : AccessibilityService() {
         super.onServiceConnected()
         Log.i(TAG, "service connected")
         instance = this
+        keyHandler = ArcisApp.instance.hardwareKeys::onKey
         _connected.value = true
         scope.launch {
             ArcisApp.instance.displays.screen.collect { attachTo(it) }
@@ -172,7 +176,61 @@ class ArcisAccessibilityService : AccessibilityService() {
 
     fun setCursorVisible(visible: Boolean) = cursor?.setVisible(visible)
 
+    /**
+     * Types [text] into the selected (focused) text field on the external screen, at the
+     * caret, replacing any selection. Returns false if no editable field has focus there.
+     */
+    fun insertText(text: String): Boolean {
+        val displayId = screen?.displayId ?: return false
+        val node = windowsOnAllDisplays.get(displayId).orEmpty()
+            .asSequence()
+            .mapNotNull { it.root?.let(::focusedEditable) }
+            .firstOrNull()
+            ?: return false
+        node.refresh() // make sure text and caret are current
+        val current = if (node.isShowingHintText) "" else node.text?.toString().orEmpty()
+        var start = node.textSelectionStart
+        var end = node.textSelectionEnd
+        if (start < 0 || end < 0 || start > current.length || end > current.length) {
+            start = current.length
+            end = current.length
+        }
+        val before = current.substring(0, minOf(start, end))
+        val after = current.substring(maxOf(start, end))
+        val piece = SpokenPunctuation.join(before, text)
+        val setText = Bundle().apply {
+            putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, before + piece + after)
+        }
+        if (!node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, setText)) return false
+        val caret = before.length + piece.length
+        node.performAction(
+            AccessibilityNodeInfo.ACTION_SET_SELECTION,
+            Bundle().apply {
+                putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_START_INT, caret)
+                putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_END_INT, caret)
+            },
+        )
+        return true
+    }
+
     fun cursorPosition(): PointF = PointF(x, y)
+
+    /**
+     * The text field with input focus under [root]. View-based apps answer findFocus directly;
+     * Compose apps report only their host view, so fall back to searching the node tree.
+     */
+    private fun focusedEditable(root: AccessibilityNodeInfo): AccessibilityNodeInfo? {
+        root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)?.takeIf { it.isEditable }?.let { return it }
+        val queue = ArrayDeque<AccessibilityNodeInfo>().apply { add(root) }
+        var visited = 0
+        while (queue.isNotEmpty() && visited < MAX_NODES) {
+            val n = queue.removeFirst()
+            visited++
+            if (n.isEditable && n.isFocused) return n
+            for (i in 0 until n.childCount) n.getChild(i)?.let(queue::addLast)
+        }
+        return null
+    }
 
     // ------------------------------------------------------------------ foreground app on the screen
 
@@ -193,6 +251,7 @@ class ArcisAccessibilityService : AccessibilityService() {
         private const val TAG = "ArcisA11y"
         private const val OVERLAY_ATTEMPTS = 10
         private const val OVERLAY_RETRY_MS = 500L
+        private const val MAX_NODES = 2_000
 
         /** The running service, or null when accessibility is off. */
         @Volatile

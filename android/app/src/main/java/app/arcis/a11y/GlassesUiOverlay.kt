@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -58,6 +59,7 @@ class GlassesUiOverlay(service: AccessibilityService, display: Display) {
     private var selected by mutableStateOf(0)
     private var switcherVisible by mutableStateOf(false)
     private var flashText by mutableStateOf<String?>(null)
+    private var dictationText by mutableStateOf<String?>(null)
     private var flashToken = 0
 
     private val view = ComposeView(context).apply {
@@ -108,6 +110,15 @@ class GlassesUiOverlay(service: AccessibilityService, display: Display) {
         switcherVisible = false
     }
 
+    /** Live speech-to-text strip at the bottom of the screen. */
+    fun showDictation(text: String) {
+        dictationText = text
+    }
+
+    fun hideDictation() {
+        dictationText = null
+    }
+
     /** Shows [text] centred for a moment (e.g. the name of the app you switched to). */
     fun flash(text: String) {
         val token = ++flashToken
@@ -120,6 +131,32 @@ class GlassesUiOverlay(service: AccessibilityService, display: Display) {
         Box(Modifier.fillMaxSize()) {
             AnimatedVisibility(switcherVisible, enter = fadeIn(), exit = fadeOut()) {
                 Switcher()
+            }
+            val spoken = dictationText
+            AnimatedVisibility(
+                spoken != null,
+                enter = fadeIn(),
+                exit = fadeOut(),
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 48.dp),
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .background(Color(0xF010121A), RoundedCornerShape(24.dp))
+                        .border(1.dp, GlassesColors.Accent, RoundedCornerShape(24.dp))
+                        .padding(horizontal = 24.dp, vertical = 14.dp),
+                ) {
+                    Box(Modifier.size(12.dp).background(Color(0xFFFF5A5A), RoundedCornerShape(6.dp)))
+                    Spacer(Modifier.width(14.dp))
+                    Text(
+                        spoken ?: "",
+                        color = GlassesColors.Text,
+                        fontSize = 22.sp,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.widthIn(max = 900.dp),
+                    )
+                }
             }
             val text = flashText
             AnimatedVisibility(

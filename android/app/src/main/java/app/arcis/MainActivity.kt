@@ -1,13 +1,16 @@
 package app.arcis
 
+import android.Manifest
 import android.app.ActivityOptions
 import android.content.Intent
 import android.view.Display
 import android.content.pm.ActivityInfo
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.provider.Settings
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -44,6 +47,7 @@ class MainActivity : ComponentActivity() {
     private val displays get() = ArcisApp.instance.displays
     private lateinit var router: InputRouter
     private lateinit var controllerPrefs: ControllerPrefs
+    private val micPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -70,6 +74,7 @@ class MainActivity : ComponentActivity() {
             val mode by controllerPrefs.mode.collectAsState()
             val trackpad = screen != null && a11y
             LaunchedEffect(trackpad, mode) { setControllerWindow(trackpad, mode) }
+            LaunchedEffect(trackpad) { if (trackpad) askForMicrophone() }
             when {
                 screen == null -> Message("Connect your glasses or an external screen over USB-C")
                 !a11y -> AccessibilitySetup { openAccessibilitySettings() }
@@ -108,6 +113,13 @@ class MainActivity : ComponentActivity() {
         // ALT_FOCUSABLE_IM keeps the keyboard layered above this non-focusable window.
         val flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM
         if (trackpad) window.addFlags(flags) else window.clearFlags(flags)
+    }
+
+    /** Speech-to-text (hold volume up) needs the microphone; ask once when controlling starts. */
+    private fun askForMicrophone() {
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            micPermission.launch(Manifest.permission.RECORD_AUDIO)
+        }
     }
 
     private fun openAccessibilitySettings() {

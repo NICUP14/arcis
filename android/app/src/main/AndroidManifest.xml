@@ -1,8 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- List launchable apps for the launcher on the external screen. -->
+    <!-- Speech-to-text (hold volume up). -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <!-- List launchable apps for the launcher on the external screen; find the speech recognizer. -->
     <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
         <intent>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />

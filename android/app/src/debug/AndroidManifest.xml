@@ -24,6 +24,14 @@
             android:excludeFromRecents="true"
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
+        <receiver
+            android:name=".debug.DebugInsertTextReceiver"
+            android:exported="true" />
+
+        <receiver
+            android:name=".debug.DebugDictationReceiver"
+            android:exported="true" />
+
         <activity
             android:name=".debug.SimScreenActivity"
             android:exported="true"
