@@ -17,15 +17,14 @@ class ShapeVocabularyTest {
     /** How people draw each command (unit box, y down). */
     private val drawings: Map<ShapeCommand, List<Pair<Float, Float>>> = mapOf(
         ShapeCommand.PASTE to listOf(0f to 0f, 0.5f to 1f, 1f to 0f),
-        ShapeCommand.CUT to listOf(0f to 0f, 1f to 1f, 1f to 0f, 0f to 1f),
+        ShapeCommand.CUT to listOf(0f to 0f, 1f to 1f),
         ShapeCommand.UNDO to listOf(0f to 0f, 1f to 0f, 0f to 1f, 1f to 1f),
-        ShapeCommand.REDO to listOf(0f to 0f, 0.5f to 0.5f, 1f to 0f, 0.5f to 0.5f, 0.5f to 1f),
+        ShapeCommand.REDO to listOf(1f to 1f, 0f to 1f, 1f to 0f, 0f to 0f),
         ShapeCommand.SELECT_ALL to listOf(0f to 1f, 0.5f to 0f, 1f to 1f),
         ShapeCommand.SAVE to listOf(
             0.9f to 0.12f, 0.6f to 0f, 0.25f to 0.03f, 0.08f to 0.2f, 0.25f to 0.42f,
             0.75f to 0.58f, 0.92f to 0.8f, 0.75f to 0.97f, 0.4f to 1f, 0.1f to 0.88f,
         ),
-        ShapeCommand.FIND to listOf(1f to 0f, 0f to 0f, 0f to 1f),
         ShapeCommand.ENTER to listOf(1f to 0f, 1f to 1f, 0f to 1f),
         ShapeCommand.BACKSPACE to listOf(1f to 0f, 0f to 0.5f, 1f to 1f),
         ShapeCommand.TAB to listOf(0f to 0f, 1f to 0.5f, 0f to 1f),
@@ -35,7 +34,7 @@ class ShapeVocabularyTest {
         ShapeCommand.RIGHT to listOf(0f to 0.5f, 1f to 0.5f),
         ShapeCommand.UP to listOf(0.5f to 1f, 0.5f to 0f),
         ShapeCommand.DOWN to listOf(0.5f to 0f, 0.5f to 1f),
-        ShapeCommand.SWITCH_WINDOW to listOf(0f to 0f, 1f to 0f, 1f to 1f),
+        ShapeCommand.SWITCH_WINDOW to listOf(0f to 0f, 1f to 0f, 0.7f to 1f),
         ShapeCommand.START_MENU to listOf(0f to 0f, 0.25f to 1f, 0.5f to 0.35f, 0.75f to 1f, 1f to 0f),
     )
 
@@ -76,19 +75,40 @@ class ShapeVocabularyTest {
         }
     }
 
+    /** A hand-drawn magnifying glass: a wobbly circle (either way round), then the handle. */
+    private fun sloppyMagnifier(rnd: Random): List<Point> {
+        val size = 150f + rnd.nextFloat() * 250f
+        val start = 45.0 + (rnd.nextDouble() - 0.5) * 40.0
+        val sweep = (330.0 + rnd.nextDouble() * 40.0) * if (rnd.nextBoolean()) 1 else -1
+        val rx = 0.38 * (0.85 + rnd.nextDouble() * 0.3)
+        val circle = (0..36).map { s ->
+            val a = Math.toRadians(start + sweep * s / 36.0)
+            val wobble = 1 + sin(s * 1.1) * 0.04
+            Point(((0.38 + rx * wobble * cos(a)) * size + 400).toFloat(), ((0.38 + 0.38 * wobble * sin(a)) * size + 300).toFloat())
+        }
+        val end = circle.last()
+        val handle = (1..10).map { s ->
+            val t = s / 10f * size * (0.3f + rnd.nextFloat() * 0.15f)
+            Point(end.x + t, end.y + t)
+        }
+        return circle + handle
+    }
+
     @Test
     fun everyShapeIsRecognisedAndNotConfused() {
         val rnd = Random(42)
         val tries = 40
         val report = StringBuilder()
         var failures = 0
-        val all = drawings.keys + ShapeCommand.COPY
+        val all = drawings.keys + ShapeCommand.COPY + ShapeCommand.FIND
         for (command in all) {
             val wrong = mutableMapOf<String, Int>()
             var right = 0
             repeat(tries) {
                 val stroke = if (command == ShapeCommand.COPY) {
                     sloppyC(rnd)
+                } else if (command == ShapeCommand.FIND) {
+                    sloppyMagnifier(rnd)
                 } else {
                     val corners = drawings.getValue(command)
                     sloppy(corners, rnd, line = corners.size == 2)
@@ -107,8 +127,15 @@ class ShapeVocabularyTest {
     }
 
     @Test
-    fun diagonalLinesAndScribblesDoNothing() {
-        val diagonal = (0..20).map { Point(100f + it * 10f, 100f + it * 10f) }
-        assertTrue(recognizer.recognize(diagonal) == null)
+    fun onlyTheBackslashDiagonalIsUsed() {
+        val backslash = (0..20).map { Point(100f + it * 10f, 100f + it * 10f) }
+        val slash = (0..20).map { Point(100f + it * 10f, 300f - it * 10f) }
+        assertTrue(recognizer.recognize(backslash)?.command == ShapeCommand.CUT)
+        assertTrue(recognizer.recognize(slash) == null)
+    }
+
+    @Test
+    fun everyCommandHasAGuide() {
+        for (c in ShapeCommand.entries) assertTrue("$c", ShapeRecognizer.guide(c).size >= 2)
     }
 }

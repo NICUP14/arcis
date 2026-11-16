@@ -16,10 +16,10 @@ Picture and sound come from **Moonlight** (phone) + **Sunshine** or **Apollo**
    resumes) the computer's **Desktop** stream in Moonlight on the glasses, skipping
    Moonlight's menus. While the stream is in front:
    - the trackpad, clicks, scrolling, pinch-to-zoom and drawn shortcuts control the
-     computer (Ctrl, or Cmd on a Mac). Arcis Home → **Gestures** lists them all: draw a
-     key's symbol (< Backspace, > Tab, ↵ Enter, ␣ Space, D Delete, straight lines =
-     arrows) or a shortcut's Ctrl letter (C V X Z Y, ∧ = A, S, F; T = Alt+Tab,
-     W = Windows key);
+     computer (Ctrl, or Cmd on a Mac). Arcis Home → **Gestures** shows each stroke: keys
+     (< Backspace, > Tab, ↵ Enter, ⊔ Space, D Delete, straight lines = arrows) and
+     shortcuts (C copy, V paste, \ cut, Z undo, Z backwards redo, ∧ select all, S save,
+     magnifier find, 7 Alt+Tab, W Windows key);
    - type with the keyboard button, or hold the mic button to dictate (both bottom right);
    - the computer shows its own pointer, so Arcis hides the glasses cursor.
    Switch away like any app (bottom edge); the bridge stays connected. In Moonlight's
