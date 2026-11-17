@@ -17,6 +17,8 @@
     <MajorUpgrade DowngradeErrorMessage="A newer Arcis Bridge is already installed." />
     <MediaTemplate EmbedCab="yes" />
 
+    <Icon Id="ArcisIcon" SourceFile="installer/arcis.ico" />
+    <Property Id="ARPPRODUCTICON" Value="ArcisIcon" />
     <Property Id="ARPURLINFOABOUT" Value="https://github.com/NICUP14/arcis" />
     <Property Id="ARPCOMMENTS" Value="Lets the Arcis phone app control this computer." />
 
@@ -43,6 +45,7 @@
                   Name="Arcis Bridge"
                   Description="Control this computer from the Arcis phone app"
                   Target="[#BridgeExe]"
+                  Icon="ArcisIcon"
                   WorkingDirectory="INSTALLFOLDER" />
         <RegistryValue Root="HKMU" Key="Software\Arcis\Bridge" Name="StartMenuShortcut"
                        Type="integer" Value="1" KeyPath="yes" />
