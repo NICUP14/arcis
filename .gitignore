@@ -27,3 +27,6 @@ Thumbs.db
 
 # Release builds (docs/releasing.md)
 /release/
+
+# Local drafts and generated material (e.g. posts), not part of the docs
+/docs/artifacts/
