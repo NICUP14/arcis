@@ -24,3 +24,6 @@ Thumbs.db
 
 # Local tool config
 .mcp.json
+
+# Release builds (docs/releasing.md)
+/release/

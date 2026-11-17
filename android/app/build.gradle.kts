@@ -11,13 +11,13 @@ android {
         applicationId = "app.arcis"
         minSdk = 30
         targetSdk = 36
-        // Release builds get these from the git tag (see .github/workflows/release.yml).
+        // Release builds get these from the command line (see docs/releasing.md).
         versionCode = (findProperty("versionCode") as String?)?.toInt() ?: 1
         versionName = (findProperty("versionName") as String?) ?: "0.1.0"
     }
 
-    // Release signing: the keystore and passwords come from environment variables (GitHub
-    // secrets in CI, see docs/releasing.md); never from the repository.
+    // Release signing: the keystore and passwords come from environment variables
+    // (see docs/releasing.md); never from the repository.
     val keystore = System.getenv("ARCIS_KEYSTORE")
     signingConfigs {
         create("release") {

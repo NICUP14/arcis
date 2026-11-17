@@ -1,71 +1,76 @@
 # Making a release
 
-Pushing a version tag for a commit on `main` publishes a GitHub release automatically
-(`.github/workflows/release.yml`):
+Releases are built on a Windows PC and published by hand on GitHub. Each release has:
 
-| File | Built on | What |
-|---|---|---|
-| `Arcis-<version>.apk` | Ubuntu | The phone app, signed with the release key |
-| `ArcisBridge-<version>.msi` | Windows | The Arcis Bridge installer (unsigned) |
-| `SHA256SUMS.txt` | | Checksums of both |
+| File | What |
+|---|---|
+| `Arcis-<version>.apk` | The phone app, signed with the release key |
+| `ArcisBridge-<version>.msi` | The Arcis Bridge installer for Windows (unsigned) |
+| `SHA256SUMS.txt` | Checksums of both |
 
-Unit tests (`android/core`, `bridge`) run first; a failing test stops the release.
+## Steps
 
-## Release a version
+Pick the version, e.g. `0.2.0` (`MAJOR.MINOR.PATCH`). Then, from the repository root
+in PowerShell:
 
-```sh
-git checkout main
-git merge dev                 # what you want to release
-git push origin main
-git tag v0.2.0                # vMAJOR.MINOR.PATCH, or v0.2.0-beta.1 for a pre-release
-git push origin v0.2.0
+```powershell
+$v = "0.2.0"
+$code = 200          # Android versionCode: MAJOR*10000 + MINOR*100 + PATCH; must grow every release
+
+# 1. Tests and the signed phone app (signing variables: see below)
+cd android
+.\gradlew test :app:assembleRelease "-PversionName=$v" "-PversionCode=$code"
+cd ..
+
+# 2. Bridge tests and the Windows installer
+cd bridge
+go test ./...
+.\build.ps1 -Version $v -OutDir ..\release
+cd ..
+
+# 3. Collect the files and checksums
+Copy-Item android\app\build\outputs\apk\release\app-release.apk "release\Arcis-$v.apk"
+Remove-Item release\arcis-bridge.exe
+Get-FileHash release\* -Algorithm SHA256 | ForEach-Object { "$($_.Hash.ToLower())  $(Split-Path $_.Path -Leaf)" } |
+    Set-Content release\SHA256SUMS.txt
+
+# 4. Tag and publish (the GitHub CLI, or the Releases page on github.com)
+git tag "v$v"
+git push origin main "v$v"
+gh release create "v$v" release\* --title "Arcis $v" --notes-file docs\release-notes.md
 ```
 
-The version comes from the tag: the APK gets `versionName 0.2.0` and `versionCode 200`
-(`MAJOR*10000 + MINOR*100 + PATCH`, so every new version must be higher), and the MSI
-gets version 0.2.0. A tag with a suffix (`-beta.1`) is published as a pre-release. A
-tag on a commit that isn't on `main` is rejected.
+`release/` is ignored by git. `docs/release-notes.md` is the text shown on the release
+page (which file to download, the SmartScreen note); edit it to add what's new.
 
-## One-time setup: the signing key
+## The signing key
 
-Android only updates an app with a new version signed by **the same key**. Create the
-key once, keep it safe (losing it means users must uninstall to update), and give it to
-GitHub as secrets. It never goes into the repository.
+Android only installs an update if it is signed by **the same key** as the installed
+app. Keep the key and its passwords safe and backed up (a password manager): losing it
+means everyone has to uninstall Arcis to get updates. It never goes into the repository.
 
-1. Create the key (JDK's `keytool`):
+Create it once (JDK's `keytool`):
 
-   ```sh
-   keytool -genkeypair -v -keystore arcis-release.jks -alias arcis \
-     -keyalg RSA -keysize 4096 -validity 10000
-   ```
+```powershell
+keytool -genkeypair -v -keystore arcis-release.jks -alias arcis -keyalg RSA -keysize 4096 -validity 10000
+```
 
-2. Back up `arcis-release.jks` and its passwords somewhere safe (a password manager).
+Before building, point Gradle to it with environment variables (PowerShell):
 
-3. In the GitHub repository: **Settings › Secrets and variables › Actions › New
-   repository secret**, add:
+```powershell
+$env:ARCIS_KEYSTORE = "C:\path\to\arcis-release.jks"
+$env:ARCIS_KEYSTORE_PASSWORD = "..."
+$env:ARCIS_KEY_ALIAS = "arcis"
+$env:ARCIS_KEY_PASSWORD = "..."
+```
 
-   | Secret | Value |
-   |---|---|
-   | `ARCIS_KEYSTORE_BASE64` | the keystore as base64: `base64 -w0 arcis-release.jks` (Linux), `[Convert]::ToBase64String([IO.File]::ReadAllBytes("arcis-release.jks"))` (PowerShell) |
-   | `ARCIS_KEYSTORE_PASSWORD` | the keystore password |
-   | `ARCIS_KEY_ALIAS` | `arcis` |
-   | `ARCIS_KEY_PASSWORD` | the key password |
-
-Without these secrets the release job stops with a message pointing here.
-
-To build a signed APK locally, set the same values as environment variables
-(`ARCIS_KEYSTORE` = path to the `.jks`, plus the three passwords/alias) and run
-`./gradlew :app:assembleRelease`. Without them the release APK is left unsigned.
+Without them, `assembleRelease` produces an unsigned `app-release-unsigned.apk`, which
+phones won't install.
 
 ## The Windows installer
 
-`bridge/build.ps1` builds the tray exe and the MSI (WiX **5**:
-`dotnet tool install --global wix --version 5.0.2`). WiX 6+ requires accepting the Open
+`bridge/build.ps1` builds the tray exe and the MSI with WiX **5**
+(`dotnet tool install --global wix --version 5.0.2`). WiX 6+ requires accepting the Open
 Source Maintenance Fee EULA, so the project stays on WiX 5 for now. The MSI isn't
 code-signed: Windows SmartScreen shows "Windows protected your PC" (users click *More
-info › Run anyway*); signing can be added later as one step in the workflow.
-
-## Version in the bridge
-
-The bridge reports its version (`arcis-bridge -version`, status page). `build.ps1`
-sets it from the tag via `-ldflags -X main.Version=...`.
+info › Run anyway*).
