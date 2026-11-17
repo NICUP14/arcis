@@ -41,6 +41,13 @@ Picture and sound come from **Moonlight** (phone) + **Sunshine** or **Apollo**
   button to the navigation bar. If the phone stops reacting, drag the lock icon to
   unlock, or turn Game Booster off for Moonlight (Game Booster settings → Block during
   game / app list).
+- **Media mode**: when the app in front on the glasses is playing a video (Netflix,
+  YouTube…), the trackpad controls it without aiming: tap = play/pause, swipe left/right =
+  seek (±10 s, more for longer swipes), right edge up/down = volume, long-press = pointer
+  back. The phone shows **▶ Media** while it's on (tap it to turn it off or on). Needs
+  notification access (phone setup checklist). For the computer's stream it's off by
+  default: tap **▶ Media off** to send play/pause, arrow keys (seek) and volume keys to
+  the computer.
 - **Switching away from the computer**: Moonlight ends its stream whenever another app
   covers it (its own design; the computer's Desktop keeps running). Arcis brings it back:
   the switcher lists the computer as **MSI ⟳**, and switching to it, or pressing Back

@@ -86,6 +86,14 @@ class TrackpadGestureEngineTest {
         assertTrue(moves.isNotEmpty())
         assertTrue(moves.sumOf { it.dx.toDouble() } > 120.0) // accelerated beyond finger travel
         assertTrue(only<Gesture.Click>().isEmpty())
+        assertEquals(Gesture.MoveEnd, out.last()) // the lift ends the swipe
+    }
+
+    @Test
+    fun tapHasNoMoveEnd() {
+        down(0, 500f, 500f)
+        up(0, dt = 80)
+        assertTrue(Gesture.MoveEnd !in out)
     }
 
     @Test

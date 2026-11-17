@@ -38,7 +38,7 @@ Then any number of input messages (no replies, except pong):
 | `button` | `button` (`left`/`right`/`middle`), `down` | press / release |
 | `click` | `button` | press + release |
 | `scroll` | `dx`, `dy` (notches, fractions ok) | `dy > 0` shows content further down |
-| `key` | `key`, `mods` (`ctrl`, `shift`, `alt`, `meta`) | named key: `Enter`, `Backspace`, `Escape`, `Tab`, `Space`, `Delete`, arrows, `Home`, `End`, `PageUp`, `PageDown`, `Meta` (Windows/Super key alone), `Equal`, `Minus`, `A`–`Z`, `0`–`9` |
+| `key` | `key`, `mods` (`ctrl`, `shift`, `alt`, `meta`) | named key: `Enter`, `Backspace`, `Escape`, `Tab`, `Space`, `Delete`, arrows, `Home`, `End`, `PageUp`, `PageDown`, `Meta` (Windows/Super key alone), `Equal`, `Minus`, media keys `MediaPlayPause`, `MediaNext`, `MediaPrev`, `VolumeUp`, `VolumeDown` (macOS: volume only), `A`–`Z`, `0`–`9` |
 | `text` | `text` | type Unicode text (Linux: US-layout characters only) |
 | `ping` | `time` | bridge answers `{"t":"pong","time":...}` (latency) |
 | `clip` | `text` | both directions: clipboard text (bridge sends when the computer's clipboard changes) |

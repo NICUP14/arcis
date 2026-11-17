@@ -42,8 +42,8 @@ import app.arcis.host.HostTarget
 /** Reads what is set up on this phone, for [SetupChecklist]. */
 object PhoneSetup {
 
-    /** Items this build has (notification access arrives with the notification banners). */
-    var shown: Set<SetupItem> = SetupItem.entries.toSet() - SetupItem.NOTIFICATIONS
+    /** Items this build has. */
+    var shown: Set<SetupItem> = SetupItem.entries.toSet()
 
     fun check(context: Context): SetupChecklist {
         val app = ArcisApp.instance
@@ -92,7 +92,7 @@ private fun copy(item: SetupItem): Copy = when (item) {
     )
     SetupItem.NOTIFICATIONS -> Copy(
         "Notification access",
-        "Message banners on the glasses, and play / pause / seek for videos.",
+        "Media mode: tap to play / pause and swipe to seek videos on the glasses, no aiming.",
         "Open",
     )
     SetupItem.MICROPHONE -> Copy("Microphone", "Speech to text (hold the mic button), and the phone as a computer mic.", "Allow")

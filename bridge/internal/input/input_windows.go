@@ -67,6 +67,7 @@ var vkByName = map[string]uint16{
 	"Left": 0x25, "Up": 0x26, "Right": 0x27, "Down": 0x28, "Home": 0x24, "End": 0x23,
 	"PageUp": 0x21, "PageDown": 0x22,
 	"Meta": 0x5B, "Equal": 0xBB, "Minus": 0xBD,
+	"MediaPlayPause": 0xB3, "MediaNext": 0xB0, "MediaPrev": 0xB1, "VolumeUp": 0xAF, "VolumeDown": 0xAE,
 }
 
 var vkMods = []struct {

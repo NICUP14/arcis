@@ -14,6 +14,7 @@ import app.arcis.host.HostConnection
 import app.arcis.host.HostManager
 import app.arcis.host.HostTarget
 import app.arcis.host.SavedHost
+import app.arcis.media.MediaMode
 import app.arcis.host.Moonlight
 import app.arcis.core.switcher.ResumeAction
 import app.arcis.core.switcher.ResumeEvent
@@ -70,6 +71,8 @@ class ArcisApp : Application() {
         private set
     lateinit var hostTarget: HostTarget
         private set
+    lateinit var media: MediaMode
+        private set
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val _computerControl = MutableStateFlow(false)
@@ -93,6 +96,7 @@ class ArcisApp : Application() {
         bluetoothTarget = BluetoothTarget(hid)
         hosts = HostManager(this)
         hostTarget = HostTarget(hosts)
+        media = MediaMode(this, hosts, hostTarget).also { it.start() }
         remoteTyping = combine(_computerControl, bluetoothTarget.activeState) { computer, bluetooth ->
             when {
                 computer -> RemoteTarget.COMPUTER

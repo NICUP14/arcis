@@ -52,6 +52,13 @@ private val Switching = listOf(
     "Mic button (hold)" to "Speak to type",
 )
 
+private val Media = listOf(
+    "Tap" to "Play / pause",
+    "Swipe ← →" to "Seek (longer = further)",
+    "Right edge ↑ ↓" to "Volume",
+    "Long-press" to "Pointer back",
+)
+
 private val Keys = listOf(
     ShapeCommand.BACKSPACE to "Backspace",
     ShapeCommand.TAB to "Tab",
@@ -92,6 +99,8 @@ fun GesturesPanel(onDone: () -> Unit) {
                 Group("On the trackpad", Trackpad)
                 Spacer(Modifier.height(12.dp))
                 Group("Switching & typing", Switching)
+                Spacer(Modifier.height(12.dp))
+                Group("Videos (▶ Media on the phone)", Media)
             }
             val keys: @Composable () -> Unit = {
                 ShapeGroup("Draw a key", Keys)

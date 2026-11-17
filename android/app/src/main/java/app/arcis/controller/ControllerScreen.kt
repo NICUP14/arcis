@@ -1,5 +1,6 @@
 package app.arcis.controller
 
+import app.arcis.media.MediaState
 import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -81,6 +82,8 @@ fun ControllerScreen(
     onDictationStart: () -> Unit,
     onDictationStop: () -> Unit,
     onGesture: (Gesture) -> Unit,
+    media: MediaState = MediaState(),
+    onMediaToggle: () -> Unit = {},
 ) {
     var last by remember { mutableStateOf("") }
     LaunchedEffect(last) {
@@ -111,6 +114,16 @@ fun ControllerScreen(
                         // Clear of the bottom-edge swipe zone and the right-edge scroll strip.
                         .padding(end = EDGE_ZONE + 10.dp, bottom = EDGE_ZONE + 10.dp),
                 )
+                if (media.available) {
+                    MediaChip(
+                        media.active,
+                        onMediaToggle,
+                        Modifier
+                            .align(Alignment.BottomStart)
+                            .then(if (keyboardSpace) Modifier else Modifier.navigationBarInsets())
+                            .padding(start = 16.dp, bottom = EDGE_ZONE + 10.dp),
+                    )
+                }
             }
             if (keyboardSpace) {
                 val share = if (landscape) LANDSCAPE_KEYBOARD_SHARE else UPRIGHT_KEYBOARD_SHARE
@@ -140,6 +153,28 @@ private fun Trackpad(rightEdgeScroll: Boolean, onGesture: (Gesture) -> Unit, mod
         modifier = modifier,
         factory = { ctx -> TrackpadView(ctx, rightEdgeScroll, onGesture) },
     )
+}
+
+/**
+ * Shows that media mode is on (a video in front: tap = play/pause, swipe = seek), and
+ * turns it on or off, e.g. on for a computer's stream.
+ */
+@Composable
+private fun MediaChip(active: Boolean, onToggle: () -> Unit, modifier: Modifier) {
+    val view = LocalView.current
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = modifier
+            .background(if (active) Color(0xFF16324F) else Color.Transparent, RoundedCornerShape(50))
+            .border(1.dp, if (active) Active else ButtonBorder, RoundedCornerShape(50))
+            .clickable {
+                view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
+                onToggle()
+            }
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+    ) {
+        Text(if (active) "▶ Media" else "▶ Media off", color = if (active) Color.White else Hint, fontSize = 14.sp)
+    }
 }
 
 /** Keyboard + mic, side by side; the mic (held most) is nearest the corner. */

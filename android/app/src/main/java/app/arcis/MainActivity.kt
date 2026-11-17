@@ -48,6 +48,7 @@ import app.arcis.core.setup.SetupItem
 import app.arcis.host.HostTarget
 import app.arcis.host.PairScanActivity
 import app.arcis.setup.PhoneSetup
+import app.arcis.media.ArcisNotificationListener
 import app.arcis.setup.PhoneSetupScreen
 import android.net.Uri
 import android.util.Log
@@ -99,7 +100,9 @@ class MainActivity : ComponentActivity() {
             val screen by displays.screen.collectAsState()
             val a11y by ArcisAccessibilityService.connected.collectAsState()
             val pairedHosts by ArcisApp.instance.hosts.store.hosts.collectAsState()
-            val checklist = remember(setupTick, a11y, pairedHosts) { PhoneSetup.check(this) }
+            val media by ArcisApp.instance.media.state.collectAsState()
+            val notificationAccess by ArcisNotificationListener.connected.collectAsState()
+            val checklist = remember(setupTick, a11y, pairedHosts, notificationAccess) { PhoneSetup.check(this) }
             val showSetup = setupOpen || !a11y
             val mode by controllerPrefs.mode.collectAsState()
             val remoteTarget by ArcisApp.instance.remoteTyping.collectAsState()
@@ -145,6 +148,8 @@ class MainActivity : ComponentActivity() {
                     onDictationStart = ArcisApp.instance.voice::startDictation,
                     onDictationStop = ArcisApp.instance.voice::stopDictation,
                     onGesture = router::handle,
+                    media = media,
+                    onMediaToggle = ArcisApp.instance.media::toggle,
                 )
             }
         }

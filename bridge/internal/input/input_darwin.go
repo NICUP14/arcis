@@ -52,6 +52,8 @@ var macKeyByName = map[string]uint16{
 	"Left": 123, "Right": 124, "Down": 125, "Up": 126, "Home": 115, "End": 119,
 	"PageUp": 116, "PageDown": 121,
 	"Meta": 55, "Equal": 24, "Minus": 27,
+	// Play/pause and next/previous are system events on macOS, not key codes: unsupported.
+	"VolumeUp": 72, "VolumeDown": 73,
 }
 
 // ANSI key codes for A..Z and 0..9.

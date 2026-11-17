@@ -5,6 +5,9 @@ sealed interface Gesture {
     /** Relative pointer movement (already accelerated), in target pixels. */
     data class PointerMove(val dx: Float, val dy: Float) : Gesture
 
+    /** The finger that was moving the pointer lifted (ends a swipe, e.g. seek in media mode). */
+    data object MoveEnd : Gesture
+
     data class Click(val button: Button) : Gesture
 
     /** Left button held down for a drag (double-tap-hold), released with [DragEnd]. */

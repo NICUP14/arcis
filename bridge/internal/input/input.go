@@ -40,6 +40,8 @@ var namedKeys = []string{
 	"Left", "Right", "Up", "Down", "Home", "End", "PageUp", "PageDown",
 	"Meta",           // the Windows / Super / Command key on its own (Start menu)
 	"Equal", "Minus", // with Ctrl/Cmd: zoom in / out
+	// Media keys (media mode in Arcis). macOS: volume only.
+	"MediaPlayPause", "MediaNext", "MediaPrev", "VolumeUp", "VolumeDown",
 }
 
 // NormalizeKey returns the canonical key name, or "" if unknown.

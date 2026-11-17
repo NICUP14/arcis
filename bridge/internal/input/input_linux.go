@@ -51,6 +51,7 @@ var linuxKeyByName = map[string]uint16{
 	"Left": 105, "Right": 106, "Up": 103, "Down": 108, "Home": 102, "End": 107,
 	"PageUp": 104, "PageDown": 109,
 	"Meta": 125, "Equal": 13, "Minus": 12,
+	"MediaPlayPause": 164, "MediaNext": 163, "MediaPrev": 165, "VolumeUp": 115, "VolumeDown": 114,
 }
 
 // US layout: letters and digits.

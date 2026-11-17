@@ -138,7 +138,7 @@ class TrackpadView(
     }
 
     private fun haptic(g: Gesture): Int? = when (g) {
-        is Gesture.PointerMove, is Gesture.Scroll -> null
+        is Gesture.PointerMove, is Gesture.Scroll, Gesture.MoveEnd -> null
         is Gesture.Click -> HapticFeedbackConstants.VIRTUAL_KEY
         Gesture.DragStart -> HapticFeedbackConstants.LONG_PRESS
         Gesture.DragEnd -> HapticFeedbackConstants.VIRTUAL_KEY_RELEASE
