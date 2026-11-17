@@ -14,6 +14,12 @@ import app.arcis.host.HostConnection
 import app.arcis.host.HostManager
 import app.arcis.host.HostTarget
 import app.arcis.host.SavedHost
+import app.arcis.host.Moonlight
+import app.arcis.core.switcher.ResumeAction
+import app.arcis.core.switcher.ResumeEvent
+import app.arcis.core.switcher.ResumePolicy
+import app.arcis.core.switcher.Target
+import android.content.Context
 import app.arcis.core.net.AddressOrder
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -159,6 +165,50 @@ class ArcisApp : Application() {
             overlay?.flash("Pairing Moonlight with ${connected.host.name}…")
         } else {
             overlay?.flash("Moonlight PIN $pin: enter it in Sunshine, or open the computer from Arcis Home first", PROBLEM_FLASH_MS)
+        }
+    }
+
+    /**
+     * Opens a computer: connects its bridge and starts (or resumes) its Desktop stream in
+     * Moonlight on [displayId], skipping Moonlight's menus when it can.
+     */
+    fun openComputer(caller: Context, host: SavedHost, displayId: Int) {
+        hosts.connect(host, phoneName(this))
+        val moonlight = phoneApps.list().firstOrNull { HostTarget.isMoonlight(it.packageName) }
+        if (moonlight == null) {
+            ArcisAccessibilityService.instance?.uiOverlay?.flash("Install Moonlight to see ${host.name}'s screen")
+            return
+        }
+        // Straight into the computer's desktop; Moonlight's own start screen if that's refused.
+        if (!phoneApps.launch(caller, Moonlight.desktopIntent(moonlight.packageName, host.name), displayId)) {
+            phoneApps.open(caller, moonlight, displayId)
+        }
+        hintIfMoonlightCantReach(host)
+    }
+
+    /**
+     * Starts a computer's stream again (Moonlight ends it when another app covers it; the
+     * computer's Desktop keeps running, so this reconnects in a second or two).
+     */
+    fun resumeComputer(caller: Context, pc: Target.Pc, displayId: Int): Boolean {
+        val host = hosts.store.hosts.value.firstOrNull { it.fingerprint == pc.hostId } ?: return false
+        openComputer(caller, host, displayId)
+        return true
+    }
+
+    /**
+     * The glasses were connected: show Home, and if they were away only briefly, reopen
+     * what was in front over it (see [ResumePolicy]).
+     */
+    fun onGlassesConnected(caller: Context, displayId: Int) {
+        GlassesLauncher.showHome(caller, displayId)
+        val action = ResumePolicy.decide(switcher.lastTarget, System.currentTimeMillis(), ResumeEvent.GlassesConnected)
+        if (action !is ResumeAction.Reopen) return
+        Log.i("ArcisResume", "glasses back: reopening ${action.target}")
+        when (val t = action.target) {
+            is Target.PhoneApp -> phoneApps.find(t.pkg)?.let { phoneApps.open(caller, it, displayId) }
+            is Target.Pc -> resumeComputer(caller, t, displayId)
+            is Target.Bluetooth -> GlassesLauncher.showBluetooth(caller, displayId)
         }
     }
 

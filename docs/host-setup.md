@@ -41,6 +41,13 @@ Picture and sound come from **Moonlight** (phone) + **Sunshine** or **Apollo**
   button to the navigation bar. If the phone stops reacting, drag the lock icon to
   unlock, or turn Game Booster off for Moonlight (Game Booster settings → Block during
   game / app list).
+- **Switching away from the computer**: Moonlight ends its stream whenever another app
+  covers it (its own design; the computer's Desktop keeps running). Arcis brings it back:
+  the switcher lists the computer as **MSI ⟳**, and switching to it, or pressing Back
+  from the other app, restarts the stream in a second or two. If the glasses are
+  unplugged and come back within 10 minutes, whatever was in front (an app or the
+  computer) reopens by itself. Moonlight → Settings → *Picture-in-picture* may keep the
+  stream alive in a small window instead (depends on the phone).
 - **Pairing Moonlight**: Moonlight shows a 4-digit PIN. With the computer connected in
   Arcis and the Sunshine login saved in the bridge, it is entered for you ("Moonlight is
   paired with …" on the glasses). Otherwise enter it in Sunshine's web page

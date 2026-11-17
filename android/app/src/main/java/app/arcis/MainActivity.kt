@@ -120,12 +120,13 @@ class MainActivity : ComponentActivity() {
             }
         }
         handleIntent(intent)
-        // Whenever an external screen appears, put Arcis Home on it. Remembered across
-        // controller restarts, so reopening the controller doesn't cover what's playing.
+        // Whenever an external screen appears, put Arcis Home on it (and reopen what was in
+        // front if the glasses were away only briefly). Remembered across controller
+        // restarts, so reopening the controller doesn't cover what's playing.
         lifecycleScope.launch {
             displays.screen.collect { screen ->
                 if (screen != null && screen.displayId != homeShownOn) {
-                    GlassesLauncher.showHome(this@MainActivity, screen.displayId)
+                    ArcisApp.instance.onGlassesConnected(this@MainActivity, screen.displayId)
                 }
                 homeShownOn = screen?.displayId
             }

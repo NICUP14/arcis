@@ -84,19 +84,7 @@ class GlassesHomeActivity : ComponentActivity() {
 
     /** Connects the bridge (controls) and opens Moonlight (picture and sound) on this screen. */
     private fun openComputer(host: SavedHost) {
-        val app = ArcisApp.instance
-        app.hosts.connect(host, phoneName(this))
-        val moonlight = app.phoneApps.list().firstOrNull { HostTarget.isMoonlight(it.packageName) }
-        if (moonlight == null) {
-            ArcisAccessibilityService.instance?.uiOverlay?.flash("Install Moonlight to see ${host.name}'s screen")
-            return
-        }
-        val displayId = display?.displayId ?: Display.DEFAULT_DISPLAY
-        // Straight into the computer's desktop; Moonlight's own start screen if that's refused.
-        if (!app.phoneApps.launch(this, Moonlight.desktopIntent(moonlight.packageName, host.name), displayId)) {
-            app.phoneApps.open(this, moonlight, displayId)
-        }
-        app.hintIfMoonlightCantReach(host)
+        ArcisApp.instance.openComputer(this, host, display?.displayId ?: Display.DEFAULT_DISPLAY)
     }
 
     /** Opens a phone app full screen on this same display. */
