@@ -12,9 +12,15 @@ ZeroTier, WireGuard, or a forwarded port — and everything else is automatic.
    to Tailscale on its own. The computer's tile then shows **Remote** and the
    latency. If a computer isn't reachable and the phone isn't on Tailscale, the tile
    says so.
-3. **Picture (Moonlight):** in Moonlight, add the computer once more by its
-   Tailscale IP or MagicDNS name (e.g. `desktop.tail1234.ts.net`). For mobile data,
-   lower Moonlight's bitrate (e.g. 10–20 Mbps at 1080p60).
+   Pairing by scanning the bridge's QR code also gives the phone the Tailscale address
+   straight away.
+3. **Picture (Moonlight):** Moonlight keeps its own list of addresses and other apps
+   can't add to it, so add the computer once more in Moonlight (**+**) by its
+   Tailscale IP or MagicDNS name (e.g. `desktop.tail1234.ts.net`). Arcis helps: when
+   you open a computer away from home and Moonlight's stream doesn't start, the
+   glasses show the address to add and it is already copied, so just paste it. Once
+   a stream has worked over Tailscale, the hint stays away for that computer. For
+   mobile data, lower Moonlight's bitrate (e.g. 10–20 Mbps at 1080p60).
 
 Tips
 

@@ -96,6 +96,7 @@ class GlassesHomeActivity : ComponentActivity() {
         if (!app.phoneApps.launch(this, Moonlight.desktopIntent(moonlight.packageName, host.name), displayId)) {
             app.phoneApps.open(this, moonlight, displayId)
         }
+        app.hintIfMoonlightCantReach(host)
     }
 
     /** Opens a phone app full screen on this same display. */

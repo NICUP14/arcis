@@ -13,6 +13,13 @@ import app.arcis.a11y.ArcisAccessibilityService
 import app.arcis.host.HostConnection
 import app.arcis.host.HostManager
 import app.arcis.host.HostTarget
+import app.arcis.host.SavedHost
+import app.arcis.core.net.AddressOrder
+import android.content.ClipData
+import android.content.ClipboardManager
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import app.arcis.core.hid.HidKeys
 import app.arcis.core.text.TextEdit
 import app.arcis.input.RemoteTarget
@@ -155,6 +162,43 @@ class ArcisApp : Application() {
         }
     }
 
+    private var moonlightHintJob: Job? = null
+
+    /**
+     * Away from home, Moonlight may only know a computer's home address, so its stream never
+     * starts. Arcis can't add addresses to Moonlight, so when the bridge connected over a
+     * remote address (e.g. Tailscale) and no stream shows within a few seconds, say which
+     * address to add in Moonlight and copy it. Not shown again for a computer once its
+     * stream worked over a remote address.
+     */
+    fun hintIfMoonlightCantReach(host: SavedHost) {
+        moonlightHintJob?.cancel()
+        moonlightHintJob = scope.launch {
+            val c = withTimeoutOrNull(BRIDGE_WAIT_MS) {
+                hosts.connection.first { it is HostConnection.Connected || it is HostConnection.Failed }
+            } as? HostConnection.Connected ?: return@launch
+            if (!AddressOrder.isRemote(c.address)) return@launch
+            val hints = getSharedPreferences("hints", MODE_PRIVATE)
+            val key = "moonlight_remote_ok_${host.fingerprint}"
+            if (hints.getBoolean(key, false)) return@launch
+            val streamed = withTimeoutOrNull(MOONLIGHT_GRACE_MS) {
+                ArcisAccessibilityService.foregroundActivity.first { it != null && HostTarget.isMoonlightStream(it.packageName, it) }
+            } != null
+            if (streamed) {
+                hints.edit().putBoolean(key, true).apply()
+                return@launch
+            }
+            runCatching {
+                getSystemService(ClipboardManager::class.java)
+                    .setPrimaryClip(ClipData.newPlainText("${host.name} address", c.address))
+            }
+            ArcisAccessibilityService.instance?.uiOverlay?.flash(
+                "Moonlight can't find ${host.name} away from home? In Moonlight tap +, paste ${c.address} (copied)",
+                HINT_FLASH_MS,
+            )
+        }
+    }
+
     /** Says so on the glasses when a computer can't be reached or drops, e.g. over Moonlight. */
     private fun watchHostProblems() {
         scope.launch {
@@ -171,6 +215,9 @@ class ArcisApp : Application() {
 
     companion object {
         private const val PROBLEM_FLASH_MS = 5_000L
+        private const val HINT_FLASH_MS = 10_000L
+        private const val BRIDGE_WAIT_MS = 15_000L
+        private const val MOONLIGHT_GRACE_MS = 12_000L
 
         lateinit var instance: ArcisApp
             private set
