@@ -36,6 +36,7 @@ cd android
 cd bridge
 go test ./...
 go build ./cmd/arcis-bridge
+./build.ps1                  # Windows: tray exe + MSI installer in dist/ (needs WiX 5)
 ```
 
 ## License

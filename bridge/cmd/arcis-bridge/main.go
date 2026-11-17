@@ -36,6 +36,7 @@ var Version = "0.1.0"
 
 func main() {
 	showVersion := flag.Bool("version", false, "print version and exit")
+	uninstall := flag.Bool("uninstall", false, "stop starting with Windows and exit (run by the uninstaller)")
 	port := flag.Int("port", proto.DefaultPort, "TCP port for phones")
 	bind := flag.String("bind", "", "listen only on this address (e.g. a Tailscale IP or 127.0.0.1); default all")
 	statusPort := flag.Int("status-port", proto.StatusPort, "localhost port of the status page (0 = off)")
@@ -48,6 +49,10 @@ func main() {
 	flag.Parse()
 	if *showVersion {
 		fmt.Println("arcis-bridge", Version)
+		return
+	}
+	if *uninstall {
+		_ = tray.ApplyAutostart(false)
 		return
 	}
 

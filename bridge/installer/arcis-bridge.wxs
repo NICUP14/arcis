@@ -1,0 +1,87 @@
+<!--
+  Arcis Bridge installer (WiX v4+ syntax). Build with ../build.ps1.
+  Installs the bridge for all users, allows it through Windows Firewall, adds a Start
+  Menu entry and starts it (it then opens its Setup page and adds itself to the
+  user's sign-in programs). Uninstalling stops it and removes it from sign-in.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:fw="http://wixtoolset.org/schemas/v4/wxs/firewall"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+
+  <Package Name="Arcis Bridge"
+           Manufacturer="Arcis"
+           Version="$(var.Version)"
+           UpgradeCode="6f1d3a52-4b8e-4f7c-9a21-3c5e8d0b7a14"
+           Scope="perMachine">
+
+    <MajorUpgrade DowngradeErrorMessage="A newer Arcis Bridge is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/NICUP14/arcis" />
+    <Property Id="ARPCOMMENTS" Value="Lets the Arcis phone app control this computer." />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="Arcis Bridge">
+        <Component Id="BridgeExe" Bitness="always64">
+          <File Id="BridgeExe" Source="$(var.BridgeExe)" Name="arcis-bridge.exe" KeyPath="yes" />
+          <!-- Phones connect on TCP 41990; mDNS discovery uses UDP 5353. Any network
+               profile: Tailscale and office networks are often "Public". -->
+          <fw:FirewallException Id="BridgeFirewall"
+                                Name="Arcis Bridge"
+                                Description="Arcis phone app connections and discovery"
+                                Program="[#BridgeExe]"
+                                Scope="any"
+                                Profile="all" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+
+    <!-- Start Menu entry (all users, as the install is per-machine). -->
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Component Id="StartMenuShortcut">
+        <Shortcut Id="StartMenuShortcut"
+                  Name="Arcis Bridge"
+                  Description="Control this computer from the Arcis phone app"
+                  Target="[#BridgeExe]"
+                  WorkingDirectory="INSTALLFOLDER" />
+        <RegistryValue Root="HKMU" Key="Software\Arcis\Bridge" Name="StartMenuShortcut"
+                       Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+
+    <Feature Id="Main" Title="Arcis Bridge">
+      <ComponentRef Id="BridgeExe" />
+      <ComponentRef Id="StartMenuShortcut" />
+    </Feature>
+
+    <!-- Close a running bridge before files are replaced or removed. -->
+    <util:CloseApplication Id="CloseBridge"
+                           Target="arcis-bridge.exe"
+                           CloseMessage="yes"
+                           TerminateProcess="0"
+                           RebootPrompt="no" />
+
+    <!-- On uninstall (not upgrade): remove "start with Windows" for the user. -->
+    <CustomAction Id="RemoveAutostart"
+                  FileRef="BridgeExe"
+                  ExeCommand="-uninstall"
+                  Execute="deferred"
+                  Impersonate="yes"
+                  Return="ignore" />
+
+    <!-- After installing: start the bridge (it opens its Setup page on the first run). -->
+    <CustomAction Id="LaunchBridge"
+                  FileRef="BridgeExe"
+                  ExeCommand=""
+                  Execute="immediate"
+                  Impersonate="yes"
+                  Return="asyncNoWait" />
+
+    <InstallExecuteSequence>
+      <Custom Action="RemoveAutostart" Before="RemoveFiles"
+              Condition="REMOVE=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
+      <Custom Action="LaunchBridge" After="InstallFinalize"
+              Condition="NOT REMOVE" />
+    </InstallExecuteSequence>
+  </Package>
+</Wix>

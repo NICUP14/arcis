@@ -5,9 +5,26 @@ trackpad, keyboard and dictation input from the Arcis app and performs it there.
 Video and sound come from **Moonlight** on the phone and **Sunshine/Apollo** on the
 computer; the bridge only handles controls.
 
-It is a single standalone file per system — no installer, no runtime.
+## Install on Windows
 
-## Run
+Run **ArcisBridge-<version>.msi** (build it with `bridge\build.ps1`, see below). It
+installs to *Program Files\Arcis Bridge*, allows the bridge through Windows Firewall,
+adds a Start Menu entry and starts it; the bridge then opens its Setup page and starts
+with Windows from then on. Uninstall it from *Settings › Apps* like any program.
+
+The installer isn't code-signed yet, so Windows SmartScreen may say *"Windows protected
+your PC"*: click **More info › Run anyway**.
+
+To build the installer (needs Go and, once, `dotnet tool install --global wix --version 5.0.2`):
+
+```powershell
+cd bridge
+.\build.ps1            # dist\arcis-bridge.exe and dist\ArcisBridge-<version>.msi
+```
+
+## Run without installing
+
+On any system the bridge is also a single standalone file with no runtime to install.
 
 | System | Build | Notes |
 |---|---|---|
