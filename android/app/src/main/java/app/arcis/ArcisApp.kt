@@ -17,6 +17,7 @@ import app.arcis.host.SavedHost
 import app.arcis.media.MediaMode
 import app.arcis.status.GlassesStatus
 import app.arcis.notify.NotificationBanners
+import app.arcis.host.ComputerOpener
 import app.arcis.host.Moonlight
 import app.arcis.core.switcher.ResumeAction
 import app.arcis.core.switcher.ResumeEvent
@@ -79,6 +80,8 @@ class ArcisApp : Application() {
         private set
     lateinit var banners: NotificationBanners
         private set
+    lateinit var computers: ComputerOpener
+        private set
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val _computerControl = MutableStateFlow(false)
@@ -105,6 +108,7 @@ class ArcisApp : Application() {
         media = MediaMode(this, hosts, hostTarget).also { it.start() }
         status = GlassesStatus(this, hosts, media, controllerPrefs)
         banners = NotificationBanners(this)
+        computers = ComputerOpener(hosts, { phoneName(this) }, ::launchStream)
         remoteTyping = combine(_computerControl, bluetoothTarget.activeState) { computer, bluetooth ->
             when {
                 computer -> RemoteTarget.COMPUTER
@@ -181,11 +185,16 @@ class ArcisApp : Application() {
     }
 
     /**
-     * Opens a computer: connects its bridge and starts (or resumes) its Desktop stream in
-     * Moonlight on [displayId], skipping Moonlight's menus when it can.
+     * Opens a computer with one tap: connects its bridge (waking the computer first if it
+     * doesn't answer) and then starts its stream, see [ComputerOpener].
      */
-    fun openComputer(caller: Context, host: SavedHost, displayId: Int) {
-        hosts.connect(host, phoneName(this))
+    fun openComputer(caller: Context, host: SavedHost, displayId: Int) = computers.open(caller, host, displayId)
+
+    /**
+     * Starts (or resumes) a computer's Desktop stream in Moonlight on [displayId], skipping
+     * Moonlight's menus when it can. Its bridge is connected by then.
+     */
+    private fun launchStream(caller: Context, host: SavedHost, displayId: Int) {
         val moonlight = phoneApps.list().firstOrNull { HostTarget.isMoonlight(it.packageName) }
         if (moonlight == null) {
             ArcisAccessibilityService.instance?.uiOverlay?.flash("Install Moonlight to see ${host.name}'s screen")
@@ -268,7 +277,8 @@ class ArcisApp : Application() {
         }
         scope.launch {
             hosts.connection.collect { c ->
-                if (c is HostConnection.Failed) {
+                // While a computer is being woken, its failed attempts are expected.
+                if (c is HostConnection.Failed && computers.waking.value == null) {
                     ArcisAccessibilityService.instance?.uiOverlay?.flash("${c.name}: ${c.message}", PROBLEM_FLASH_MS)
                 }
             }

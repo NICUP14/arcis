@@ -22,6 +22,8 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -63,8 +65,10 @@ fun computerTiles(saved: List<SavedHost>, found: List<FoundHost>): List<Computer
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ComputerTileView(tile: ComputerTile, connection: HostConnection, onClick: () -> Unit) {
+    val wakingId by ArcisApp.instance.computers.waking.collectAsState()
+    val waking = tile is ComputerTile.Paired && wakingId == tile.host.fingerprint
     val (title, subtitle) = when (tile) {
-        is ComputerTile.Paired -> tile.host.name to when (val c = connection) {
+        is ComputerTile.Paired -> tile.host.name to if (waking) "Waking…" else when (val c = connection) {
             is HostConnection.Connected -> if (c.host.fingerprint == tile.host.fingerprint) {
                 "Connected" + (if (AddressOrder.isRemote(c.address)) " · Remote" else "") +
                     (c.latencyMs?.let { " · $it ms" } ?: "")
@@ -94,7 +98,13 @@ fun ComputerTileView(tile: ComputerTile, connection: HostConnection, onClick: ()
         Box(
             Modifier.size(56.dp).background(Color(0xFF243048), RoundedCornerShape(14.dp)),
             contentAlignment = Alignment.Center,
-        ) { Text(if (tile == ComputerTile.Add) "+" else "▣", color = GlassesColors.Text, fontSize = 26.sp) }
+        ) {
+            if (waking) {
+                CircularProgressIndicator(color = GlassesColors.Accent, strokeWidth = 3.dp, modifier = Modifier.size(30.dp))
+            } else {
+                Text(if (tile == ComputerTile.Add) "+" else "▣", color = GlassesColors.Text, fontSize = 26.sp)
+            }
+        }
         Spacer(Modifier.height(8.dp))
         Text(title, color = GlassesColors.Text, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Text(subtitle, color = GlassesColors.Dim, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)

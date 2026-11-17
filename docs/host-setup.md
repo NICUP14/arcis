@@ -41,6 +41,11 @@ Picture and sound come from **Moonlight** (phone) + **Sunshine** or **Apollo**
   button to the navigation bar. If the phone stops reacting, drag the lock icon to
   unlock, or turn Game Booster off for Moonlight (Game Booster settings → Block during
   game / app list).
+- **One tap from sleep**: opening a computer whose bridge doesn't answer sends
+  Wake-on-LAN and keeps trying every 2 s for up to a minute (the tile shows *Waking…*);
+  the stream starts as soon as the computer is up. If it doesn't wake: check it's plugged
+  in and Wake-on-LAN is enabled (BIOS/UEFI and network adapter). Arcis learns a computer's
+  network card once it has connected to it at home.
 - **Status bar**: over apps on the glasses, the top-right corner shows the time, the
   phone's battery, the connected computer (green dot), the microphone while it's live
   (red dot) and media mode. It hides over a computer's full-screen stream (a bottom-edge
