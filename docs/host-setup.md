@@ -41,6 +41,10 @@ Picture and sound come from **Moonlight** (phone) + **Sunshine** or **Apollo**
   button to the navigation bar. If the phone stops reacting, drag the lock icon to
   unlock, or turn Game Booster off for Moonlight (Game Booster settings → Block during
   game / app list).
+- **Status bar**: over apps on the glasses, the top-right corner shows the time, the
+  phone's battery, the connected computer (green dot), the microphone while it's live
+  (red dot) and media mode. It hides over a computer's full-screen stream (a bottom-edge
+  swipe shows it for 3 s) and can be turned off in Arcis Settings.
 - **Media mode**: when the app in front on the glasses is playing a video (Netflix,
   YouTube…), the trackpad controls it without aiming: tap = play/pause, swipe left/right =
   seek (±10 s, more for longer swipes), right edge up/down = volume, long-press = pointer

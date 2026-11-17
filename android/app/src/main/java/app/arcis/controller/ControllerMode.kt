@@ -60,6 +60,16 @@ class ControllerPrefs(context: Context) {
 
     fun toggle() = set(if (_mode.value == ControllerMode.LANDSCAPE) ControllerMode.UPRIGHT else ControllerMode.LANDSCAPE)
 
+    private val _statusBar = MutableStateFlow(prefs.getBoolean(KEY_STATUS_BAR, true))
+
+    /** The status bar in the corner of the glasses (time, battery, computer, mic, media). */
+    val statusBar: StateFlow<Boolean> = _statusBar.asStateFlow()
+
+    fun setStatusBar(on: Boolean) {
+        _statusBar.value = on
+        prefs.edit().putBoolean(KEY_STATUS_BAR, on).apply()
+    }
+
     fun set(mode: ControllerMode) {
         _mode.value = mode
         prefs.edit().putString(KEY_MODE, mode.name).apply()
@@ -70,6 +80,7 @@ class ControllerPrefs(context: Context) {
         private const val KEY_POINTER_SPEED = "pointer_speed"
         private const val KEY_SCROLL_SPEED = "scroll_speed"
         private const val KEY_DICTATION_LANGUAGE = "dictation_language"
+        private const val KEY_STATUS_BAR = "status_bar"
         const val DEFAULT_POINTER_SPEED = 1f
         const val MIN_POINTER_SPEED = 0.25f
         const val MAX_POINTER_SPEED = 3f

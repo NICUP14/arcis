@@ -39,6 +39,15 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import app.arcis.glasses.GlassesColors
+import app.arcis.ArcisApp
+import app.arcis.status.StatusInfo
+import android.text.format.DateFormat
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.remember
+import java.time.LocalTime
+import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.delay
 
 /** A card in the switcher. */
 data class SwitcherCard(val id: String, val label: String, val icon: ImageBitmap?)
@@ -129,6 +138,15 @@ class GlassesUiOverlay(service: AccessibilityService, display: Display) {
     @Composable
     private fun OverlayContent() {
         Box(Modifier.fillMaxSize()) {
+            val status by ArcisApp.instance.status.info.collectAsState()
+            AnimatedVisibility(
+                status.visible,
+                enter = fadeIn(),
+                exit = fadeOut(),
+                modifier = Modifier.align(Alignment.TopEnd).padding(top = 14.dp, end = 18.dp),
+            ) {
+                StatusBar(status, micLive = dictationText != null)
+            }
             AnimatedVisibility(switcherVisible, enter = fadeIn(), exit = fadeOut()) {
                 Switcher()
             }
@@ -176,6 +194,47 @@ class GlassesUiOverlay(service: AccessibilityService, display: Display) {
             }
         }
     }
+
+    /** Time, phone battery, connected computer (green dot), mic live (red dot), media mode. */
+    @Composable
+    private fun StatusBar(status: StatusInfo, micLive: Boolean) {
+        val is24h = DateFormat.is24HourFormat(context)
+        var now by remember { mutableStateOf(LocalTime.now()) }
+        LaunchedEffect(Unit) {
+            while (true) {
+                now = LocalTime.now()
+                delay((60 - now.second) * 1000L + 50) // next minute
+            }
+        }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            modifier = Modifier
+                .background(Color(0xB310121A), RoundedCornerShape(14.dp))
+                .padding(horizontal = 14.dp, vertical = 6.dp),
+        ) {
+            if (status.media) StatusText("▶ Media", GlassesColors.Accent)
+            if (micLive) Dot(Color(0xFFFF5A5A))
+            status.computer?.let {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Dot(Color(0xFF4CD98A))
+                    Spacer(Modifier.width(6.dp))
+                    StatusText(it, GlassesColors.Text)
+                }
+            }
+            status.batteryPct?.let { pct ->
+                val color = if (pct <= 15 && !status.charging) Color(0xFFFF5A5A) else GlassesColors.Text
+                StatusText((if (status.charging) "⚡" else "") + "$pct%", color)
+            }
+            StatusText(now.format(DateTimeFormatter.ofPattern(if (is24h) "HH:mm" else "h:mm")), GlassesColors.Text)
+        }
+    }
+
+    @Composable
+    private fun StatusText(text: String, color: Color) = Text(text, color = color, fontSize = 15.sp, maxLines = 1)
+
+    @Composable
+    private fun Dot(color: Color) = Box(Modifier.size(9.dp).background(color, RoundedCornerShape(5.dp)))
 
     @Composable
     private fun Switcher() {

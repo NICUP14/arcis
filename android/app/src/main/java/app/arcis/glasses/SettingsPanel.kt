@@ -81,6 +81,15 @@ fun SettingsPanel(onDone: () -> Unit) {
             SpeedSetting("Scroll speed", "How far pages scroll for a two-finger swipe", scroll, prefs::setScrollSpeed)
             Spacer(Modifier.height(14.dp))
             LanguageSetting(language, prefs::setDictationLanguage)
+            Spacer(Modifier.height(14.dp))
+            val statusBar by prefs.statusBar.collectAsState()
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Status bar", color = GlassesColors.Text, fontSize = 16.sp)
+                    Text("Time, battery, computer and mic in the corner", color = GlassesColors.Dim, fontSize = 12.sp)
+                }
+                Button(if (statusBar) "On" else "Off", enabled = true) { prefs.setStatusBar(!statusBar) }
+            }
             Spacer(Modifier.height(18.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Button("Done", enabled = true, onClick = onDone)

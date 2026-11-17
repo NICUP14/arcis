@@ -18,6 +18,10 @@ class InputRouter(private val context: Context) {
 
     fun handle(gesture: Gesture) {
         if (gesture !is Gesture.PointerMove && gesture !is Gesture.Scroll) Log.d(TAG, "gesture $gesture")
+        // Bottom-edge swipes also bring the status bar back for a moment (over a stream).
+        if (gesture is Gesture.SwitchApp || gesture == Gesture.Home || gesture == Gesture.RecentsShow) {
+            ArcisApp.instance.status.peek()
+        }
         // A video in front (media mode): tap = play/pause, swipe = seek, edge = volume.
         if (ArcisApp.instance.media.handle(gesture)) return
         if (ArcisApp.instance.switcher.handle(gesture, context)) return
