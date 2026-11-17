@@ -16,6 +16,7 @@ import app.arcis.host.HostTarget
 import app.arcis.host.SavedHost
 import app.arcis.media.MediaMode
 import app.arcis.status.GlassesStatus
+import app.arcis.notify.NotificationBanners
 import app.arcis.host.Moonlight
 import app.arcis.core.switcher.ResumeAction
 import app.arcis.core.switcher.ResumeEvent
@@ -76,6 +77,8 @@ class ArcisApp : Application() {
         private set
     lateinit var status: GlassesStatus
         private set
+    lateinit var banners: NotificationBanners
+        private set
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val _computerControl = MutableStateFlow(false)
@@ -101,6 +104,7 @@ class ArcisApp : Application() {
         hostTarget = HostTarget(hosts)
         media = MediaMode(this, hosts, hostTarget).also { it.start() }
         status = GlassesStatus(this, hosts, media, controllerPrefs)
+        banners = NotificationBanners(this)
         remoteTyping = combine(_computerControl, bluetoothTarget.activeState) { computer, bluetooth ->
             when {
                 computer -> RemoteTarget.COMPUTER

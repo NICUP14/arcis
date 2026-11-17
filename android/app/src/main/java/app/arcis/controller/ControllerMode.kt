@@ -70,6 +70,26 @@ class ControllerPrefs(context: Context) {
         prefs.edit().putBoolean(KEY_STATUS_BAR, on).apply()
     }
 
+    private val _banners = MutableStateFlow(prefs.getBoolean(KEY_BANNERS, true))
+
+    /** Message banners on the glasses. */
+    val banners: StateFlow<Boolean> = _banners.asStateFlow()
+
+    fun setBanners(on: Boolean) {
+        _banners.value = on
+        prefs.edit().putBoolean(KEY_BANNERS, on).apply()
+    }
+
+    private val _bannersOnlyStreaming = MutableStateFlow(prefs.getBoolean(KEY_BANNERS_STREAMING, false))
+
+    /** Banners only while a computer's stream or a video is in front. */
+    val bannersOnlyStreaming: StateFlow<Boolean> = _bannersOnlyStreaming.asStateFlow()
+
+    fun setBannersOnlyStreaming(on: Boolean) {
+        _bannersOnlyStreaming.value = on
+        prefs.edit().putBoolean(KEY_BANNERS_STREAMING, on).apply()
+    }
+
     fun set(mode: ControllerMode) {
         _mode.value = mode
         prefs.edit().putString(KEY_MODE, mode.name).apply()
@@ -81,6 +101,8 @@ class ControllerPrefs(context: Context) {
         private const val KEY_SCROLL_SPEED = "scroll_speed"
         private const val KEY_DICTATION_LANGUAGE = "dictation_language"
         private const val KEY_STATUS_BAR = "status_bar"
+        private const val KEY_BANNERS = "banners"
+        private const val KEY_BANNERS_STREAMING = "banners_only_streaming"
         const val DEFAULT_POINTER_SPEED = 1f
         const val MIN_POINTER_SPEED = 0.25f
         const val MAX_POINTER_SPEED = 3f

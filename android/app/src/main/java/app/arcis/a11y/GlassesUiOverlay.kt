@@ -41,6 +41,7 @@ import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import app.arcis.glasses.GlassesColors
 import app.arcis.ArcisApp
 import app.arcis.status.StatusInfo
+import app.arcis.notify.Banner
 import android.text.format.DateFormat
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -70,6 +71,16 @@ class GlassesUiOverlay(service: AccessibilityService, display: Display) {
     private var flashText by mutableStateOf<String?>(null)
     private var dictationText by mutableStateOf<String?>(null)
     private var flashToken = 0
+    private var banner by mutableStateOf<Banner?>(null)
+
+    /** A message banner at the top (see NotificationBanners). */
+    fun showBanner(b: Banner) {
+        banner = b
+    }
+
+    fun hideBanner() {
+        banner = null
+    }
 
     private val view = ComposeView(context).apply {
         setViewTreeLifecycleOwner(owner)
@@ -147,6 +158,15 @@ class GlassesUiOverlay(service: AccessibilityService, display: Display) {
             ) {
                 StatusBar(status, micLive = dictationText != null)
             }
+            val shown = banner
+            AnimatedVisibility(
+                shown != null && !switcherVisible,
+                enter = fadeIn(),
+                exit = fadeOut(),
+                modifier = Modifier.align(Alignment.TopCenter).padding(top = 56.dp),
+            ) {
+                shown?.let { BannerCard(it) }
+            }
             AnimatedVisibility(switcherVisible, enter = fadeIn(), exit = fadeOut()) {
                 Switcher()
             }
@@ -191,6 +211,35 @@ class GlassesUiOverlay(service: AccessibilityService, display: Display) {
                         .background(Color(0xE610121A), RoundedCornerShape(20.dp))
                         .padding(horizontal = 28.dp, vertical = 14.dp),
                 )
+            }
+        }
+    }
+
+    @Composable
+    private fun BannerCard(b: Banner) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .widthIn(max = 720.dp)
+                .background(Color(0xF2161922), RoundedCornerShape(18.dp))
+                .border(1.dp, GlassesColors.CardBorder, RoundedCornerShape(18.dp))
+                .padding(horizontal = 18.dp, vertical = 12.dp),
+        ) {
+            b.icon?.let {
+                Image(it, contentDescription = null, modifier = Modifier.size(40.dp))
+                Spacer(Modifier.width(14.dp))
+            }
+            Column {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(b.title, color = GlassesColors.Text, fontSize = 18.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false))
+                    Spacer(Modifier.width(10.dp))
+                    Text(b.app, color = GlassesColors.Dim, fontSize = 13.sp, maxLines = 1)
+                }
+                if (b.text.isNotBlank()) {
+                    Text(b.text, color = GlassesColors.Dim, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                Text("Two-finger tap: open · swipe up: dismiss", color = Color(0xFF5A6070), fontSize = 11.sp)
             }
         }
     }

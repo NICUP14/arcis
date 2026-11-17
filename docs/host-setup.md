@@ -45,6 +45,11 @@ Picture and sound come from **Moonlight** (phone) + **Sunshine** or **Apollo**
   phone's battery, the connected computer (green dot), the microphone while it's live
   (red dot) and media mode. It hides over a computer's full-screen stream (a bottom-edge
   swipe shows it for 3 s) and can be turned off in Arcis Settings.
+- **Message banners**: messages and calls pop up at the top of the glasses for 4 s (app
+  icon, sender, one line). While one is up, a two-finger tap opens it on the glasses and a
+  swipe up dismisses it. Ongoing and silent notifications are skipped. Arcis Settings: on /
+  off, and *Streaming* to show them only while a computer or a video is in front. Needs
+  notification access; nothing is ever sent to the computer.
 - **Media mode**: when the app in front on the glasses is playing a video (Netflix,
   YouTube…), the trackpad controls it without aiming: tap = play/pause, swipe left/right =
   seek (±10 s, more for longer swipes), right edge up/down = volume, long-press = pointer

@@ -92,7 +92,7 @@ private fun copy(item: SetupItem): Copy = when (item) {
     )
     SetupItem.NOTIFICATIONS -> Copy(
         "Notification access",
-        "Media mode: tap to play / pause and swipe to seek videos on the glasses, no aiming.",
+        "Message banners on the glasses, and media mode: tap to play / pause and swipe to seek videos.",
         "Open",
     )
     SetupItem.MICROPHONE -> Copy("Microphone", "Speech to text (hold the mic button), and the phone as a computer mic.", "Allow")

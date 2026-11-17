@@ -22,6 +22,8 @@ class InputRouter(private val context: Context) {
         if (gesture is Gesture.SwitchApp || gesture == Gesture.Home || gesture == Gesture.RecentsShow) {
             ArcisApp.instance.status.peek()
         }
+        // A message banner is up: two-finger tap opens it, swipe up dismisses it.
+        if (ArcisApp.instance.banners.handle(gesture)) return
         // A video in front (media mode): tap = play/pause, swipe = seek, edge = volume.
         if (ArcisApp.instance.media.handle(gesture)) return
         if (ArcisApp.instance.switcher.handle(gesture, context)) return

@@ -90,6 +90,24 @@ fun SettingsPanel(onDone: () -> Unit) {
                 }
                 Button(if (statusBar) "On" else "Off", enabled = true) { prefs.setStatusBar(!statusBar) }
             }
+            Spacer(Modifier.height(14.dp))
+            val banners by prefs.banners.collectAsState()
+            val onlyStreaming by prefs.bannersOnlyStreaming.collectAsState()
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Message banners", color = GlassesColors.Text, fontSize = 16.sp)
+                    Text(
+                        if (onlyStreaming) "Only while a computer or a video is in front" else "Messages and calls, at the top",
+                        color = GlassesColors.Dim,
+                        fontSize = 12.sp,
+                    )
+                }
+                Button(if (onlyStreaming) "Streaming" else "Always", enabled = banners) {
+                    prefs.setBannersOnlyStreaming(!onlyStreaming)
+                }
+                Spacer(Modifier.width(10.dp))
+                Button(if (banners) "On" else "Off", enabled = true) { prefs.setBanners(!banners) }
+            }
             Spacer(Modifier.height(18.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Button("Done", enabled = true, onClick = onDone)
