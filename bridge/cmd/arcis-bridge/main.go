@@ -48,7 +48,7 @@ func main() {
 	}
 
 	statusURL := fmt.Sprintf("http://127.0.0.1:%d/", *statusPort)
-	pairURL := statusURL
+	pairURL := statusURL + "pair"
 	if tray.AlreadyRunning() {
 		// Started again (Start Menu, sign-in, double-click): just show the running one.
 		tray.OpenURL(statusURL)

@@ -47,9 +47,16 @@ sudo modprobe uinput && sudo udevadm control --reload && sudo udevadm trigger
 
 ## Pair a phone
 
-1. Start the bridge; note the PIN on the status page.
-2. In Arcis on the phone, pick the computer (found automatically on the same
-   network) and enter the PIN. Pairing is remembered on both sides.
+1. Start the bridge and pick **Pair a phone…** from its tray menu (or open
+   http://127.0.0.1:41991/pair). It shows a QR code and a PIN.
+2. In Arcis on the glasses pick **Add computer** (or the computer, if it was found on
+   the network) → **Scan code with the phone**, and point the phone at the code. The
+   phone's own camera app works too: it opens the `arcis://pair` link in Arcis.
+3. No camera? Type the PIN instead (and the address, for **Add computer**).
+
+The code carries all the computer's addresses (home network and Tailscale) and its
+certificate fingerprint, so a scanned computer is also reachable away from home and
+can't be impersonated. Pairing is remembered on both sides.
 
 ## Clipboard and waking
 

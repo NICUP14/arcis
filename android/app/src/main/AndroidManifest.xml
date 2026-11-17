@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!-- Arcis Bridge connection to computers (TLS) and their discovery (mDNS). -->
     <uses-permission android:name="android.permission.INTERNET" />
@@ -43,6 +44,27 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Pair with a computer from the Arcis Bridge's QR code: scanned here, or opened as an
+             arcis://pair link by the phone's own camera app. -->
+        <activity
+            android:name=".host.PairScanActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="arcis" android:host="pair" />
+            </intent-filter>
+        </activity>
+
+        <!-- The QR scanner (zxing), allowed to follow how the phone is held. -->
+        <activity
+            android:name="com.journeyapps.barcodescanner.CaptureActivity"
+            android:screenOrientation="fullSensor"
+            tools:replace="screenOrientation" />
 
         <!-- Home on the external screen (glasses). Own task so it lives on that display. -->
         <activity

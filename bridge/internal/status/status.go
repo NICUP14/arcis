@@ -3,11 +3,17 @@
 package status
 
 import (
+	"encoding/base64"
 	"fmt"
 	"html/template"
 	"net"
 	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
 	"time"
+
+	qrcode "github.com/skip2/go-qrcode"
 )
 
 // Info is what the page shows.
@@ -42,7 +48,7 @@ h1{font-weight:500}.pin{font-size:56px;letter-spacing:10px;color:#6ea8ff;margin:
 <h1>Arcis Bridge <span class="dim">{{.Version}}</span></h1>
 {{if .InputError}}<div class="card warn">Input is not available: {{.InputError}}</div>{{end}}
 <div class="card">
-  <div class="dim">To pair a phone, enter this PIN in Arcis:</div>
+  <div class="dim">To pair a phone, <a href="/pair">scan the pairing code</a> or enter this PIN in Arcis:</div>
   <div class="pin">{{.PIN}}</div>
   <div class="dim">Computer: <b>{{.Host}}</b> · port {{.Port}}</div>
   <div class="dim">Addresses: {{range .Addresses}}<code>{{.}}</code> {{end}}</div>
@@ -55,6 +61,38 @@ h1{font-weight:500}.pin{font-size:56px;letter-spacing:10px;color:#6ea8ff;margin:
 </div>
 </body></html>`))
 
+var pairPage = template.Must(template.New("pair").Parse(`<!doctype html>
+<html><head><meta charset="utf-8"><meta http-equiv="refresh" content="10">
+<title>Pair a phone · Arcis Bridge</title>
+<style>
+body{font-family:system-ui,sans-serif;background:#0d0f14;color:#e8eaf0;max-width:720px;margin:40px auto;padding:0 20px;text-align:center}
+h1{font-weight:500}.dim{color:#8a90a0}a{color:#6ea8ff}
+.qr{background:#fff;border-radius:18px;padding:18px;display:inline-block;margin:18px 0}
+.pin{font-size:34px;letter-spacing:8px;color:#6ea8ff}
+</style></head><body>
+<h1>Pair a phone with {{.Host}}</h1>
+<div class="dim">In Arcis on the glasses pick <b>Add computer</b> → <b>Scan code with the phone</b>,<br>
+or point the phone's camera at the code.</div>
+<div class="qr"><img src="{{.QR}}" width="300" height="300" alt="Pairing code"></div>
+<div class="dim">No camera? Enter this PIN in Arcis instead:</div>
+<div class="pin">{{.PIN}}</div>
+<p class="dim"><a href="/">Status page</a></p>
+</body></html>`))
+
+// PairLink is what the pairing QR code holds: everything a phone needs to find this
+// computer (all its addresses, e.g. LAN and Tailscale), check its identity and pair.
+//
+//	arcis://pair?a=192.168.1.5,100.64.1.2&fp=<sha256 hex>&h=<name>&p=41990&pin=123456
+func PairLink(i Info) string {
+	v := url.Values{}
+	v.Set("h", i.Host)
+	v.Set("p", strconv.Itoa(i.Port))
+	v.Set("fp", i.Fingerprint)
+	v.Set("pin", i.PIN)
+	v.Set("a", strings.Join(i.Addresses, ","))
+	return "arcis://pair?" + v.Encode()
+}
+
 // Serve runs the page on 127.0.0.1:port until the listener fails.
 func Serve(port int, info func() Info) error {
 	ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
@@ -66,6 +104,20 @@ func Serve(port int, info func() Info) error {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Header().Set("Cache-Control", "no-store")
 		_ = page.Execute(w, info())
+	})
+	mux.HandleFunc("/pair", func(w http.ResponseWriter, r *http.Request) {
+		i := info()
+		png, err := qrcode.Encode(PairLink(i), qrcode.Medium, 600)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-store")
+		_ = pairPage.Execute(w, struct {
+			Host, PIN string
+			QR        template.URL
+		}{i.Host, i.PIN, template.URL("data:image/png;base64," + base64.StdEncoding.EncodeToString(png))})
 	})
 	srv := &http.Server{Handler: mux, ReadHeaderTimeout: 5 * time.Second}
 	return srv.Serve(ln)

@@ -22,6 +22,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -41,6 +42,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import app.arcis.ArcisApp
 import app.arcis.host.FoundHost
 import app.arcis.host.HostConnection
+import app.arcis.host.PairScanActivity
 import app.arcis.host.SavedHost
 import app.arcis.core.Arcis
 import app.arcis.core.net.AddressOrder
@@ -119,6 +121,8 @@ fun PairPanel(prefill: FoundHost?, onDone: (SavedHost?) -> Unit) {
     var pin by remember { mutableStateOf("") }
     var status by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
+    // Paired by scanning the code on the phone: close and open it like a typed PIN would.
+    LaunchedEffect(Unit) { app.hosts.paired.collect { if (!busy) onDone(it) } }
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(
             Modifier
@@ -130,10 +134,16 @@ fun PairPanel(prefill: FoundHost?, onDone: (SavedHost?) -> Unit) {
             Text(prefill?.let { "Pair with ${it.name}" } ?: "Add a computer", color = GlassesColors.Text, fontSize = 22.sp)
             Spacer(Modifier.height(6.dp))
             Text(
-                "Start the Arcis Bridge on the computer and open http://127.0.0.1:${Arcis.BRIDGE_STATUS_PORT} there to see the PIN.",
+                "On the computer, click the Arcis Bridge icon by the clock › Pair a phone…, then scan its code " +
+                    "with the phone. Or type the PIN shown there (also at http://127.0.0.1:${Arcis.BRIDGE_STATUS_PORT}).",
                 color = GlassesColors.Dim,
                 fontSize = 14.sp,
             )
+            Spacer(Modifier.height(14.dp))
+            Button("Scan code with the phone", enabled = !busy) {
+                status = "Point the phone at the code on the computer"
+                PairScanActivity.start(context)
+            }
             Spacer(Modifier.height(16.dp))
             if (prefill == null) {
                 Field("Address (IP, name or Tailscale name)", address, KeyboardType.Uri) { address = it }

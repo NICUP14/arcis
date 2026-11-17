@@ -17,6 +17,10 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import app.arcis.core.net.PairLink
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
@@ -105,18 +109,33 @@ class HostManager(context: Context) {
 
     // ------------------------------------------------------------------ pairing / connecting
 
-    /** Pairs with the bridge at [address] using the PIN it shows. Returns the saved host. */
-    suspend fun pair(address: String, port: Int, pin: String, phoneName: String): Result<SavedHost> =
+    private val _paired = MutableSharedFlow<SavedHost>(extraBufferCapacity = 4)
+
+    /** Each computer as it gets paired (typed PIN or scanned code). */
+    val paired: SharedFlow<SavedHost> = _paired.asSharedFlow()
+
+    /**
+     * Pairs with the bridge at [address] using the PIN it shows. Returns the saved host.
+     * [pinnedFingerprint] (from a scanned code) makes sure it is that computer.
+     */
+    suspend fun pair(
+        address: String,
+        port: Int,
+        pin: String,
+        phoneName: String,
+        pinnedFingerprint: String? = null,
+        knownAddresses: List<String> = emptyList(),
+    ): Result<SavedHost> =
         withContext(Dispatchers.IO) {
             runCatching {
-                val c = BridgeConnection.open(address, port, pinnedFingerprint = null)
+                val c = BridgeConnection.open(address, port, pinnedFingerprint, AddressOrder.connectTimeoutMs(address))
                 try {
                     val reply = c.request(msg("pair", "pin" to pin, "name" to phoneName))
-                    if (reply.optString("t") != "paired") error(reply.optString("msg", "Pairing failed"))
+                    if (reply.optString("t") != "paired") throw PairRefused(reply.optString("msg", "Pairing failed"))
                     SavedHost(
                         name = reply.optString("host", address),
                         // The bridge tells us its other addresses (LAN, Tailscale): keep them all.
-                        addresses = AddressOrder.order(listOf(address), reply.stringList("addresses")),
+                        addresses = AddressOrder.order(listOf(address) + knownAddresses, reply.stringList("addresses")),
                         port = port,
                         fingerprint = c.fingerprint,
                         token = reply.getString("token"),
@@ -124,8 +143,41 @@ class HostManager(context: Context) {
                 } finally {
                     c.close()
                 }
-            }
+            }.onSuccess { _paired.tryEmit(it) }
         }
+
+    /**
+     * Pairs using the bridge's QR code: tries each of its addresses (home network first,
+     * then e.g. Tailscale) until one answers with the right certificate.
+     */
+    suspend fun pair(link: PairLink, phoneName: String): Result<SavedHost> {
+        var failure: Throwable? = null
+        for (address in AddressOrder.order(link.addresses)) {
+            val r = pair(address, link.port, link.pin, phoneName, link.fingerprint, link.addresses)
+            if (r.isSuccess) return r
+            failure = r.exceptionOrNull()
+            // A refused PIN won't do better on another address; a network error might.
+            if (failure is PairRefused) break
+        }
+        val reason = failure?.takeIf { it is PairRefused }?.message
+            ?: if (!phoneOnTailscale() && link.addresses.any { AddressOrder.kind(it) == AddressOrder.Kind.TAILSCALE }) {
+                "Can't reach ${link.host}. Same Wi-Fi, or Tailscale on this phone?"
+            } else {
+                "Can't reach ${link.host}. Is it on the same network?"
+            }
+        return Result.failure(PairRefused(reason))
+    }
+
+    /** [pair] with a scanned code without tying it to a screen; [onResult] runs on the main thread. */
+    fun pairInBackground(link: PairLink, phoneName: String, onResult: (Result<SavedHost>) -> Unit) {
+        scope.launch {
+            val r = pair(link, phoneName)
+            mainHandler.post { onResult(r) }
+        }
+    }
+
+    /** The bridge answered but refused (e.g. wrong PIN). */
+    class PairRefused(message: String) : Exception(message)
 
     /** Connects to [host], trying its addresses in order; replaces any current connection. */
     fun connect(host: SavedHost, phoneName: String) {
