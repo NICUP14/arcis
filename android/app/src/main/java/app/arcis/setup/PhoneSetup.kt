@@ -95,7 +95,7 @@ private fun copy(item: SetupItem): Copy = when (item) {
         "Message banners on the glasses, and media mode: tap to play / pause and swipe to seek videos.",
         "Open",
     )
-    SetupItem.MICROPHONE -> Copy("Microphone", "Speech to text (hold the mic button), and the phone as a computer mic.", "Allow")
+    SetupItem.MICROPHONE -> Copy("Microphone", "Speak to type: hold the mic button, talk, let go.", "Allow")
     SetupItem.BLUETOOTH -> Copy("Bluetooth", "Control another device as its mouse and keyboard.", "Allow")
     SetupItem.BATTERY -> Copy(
         "No battery limits",

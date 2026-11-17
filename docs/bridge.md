@@ -1,4 +1,7 @@
-# Arcis Bridge (host helper)
+# Arcis Bridge reference
+
+> Looking for the step-by-step setup? See [Your PC on the glasses](computer.md). This
+> page is the technical reference.
 
 The Arcis Bridge runs on the computer you want to control. It receives the
 trackpad, keyboard and dictation input from the Arcis app and performs it there.
@@ -7,7 +10,7 @@ computer; the bridge only handles controls.
 
 ## Install on Windows
 
-Run **ArcisBridge-<version>.msi** (build it with `bridge\build.ps1`, see below). It
+Run **ArcisBridge-<version>.msi** from the [releases](https://github.com/NICUP14/arcis/releases/latest) (or build it with `bridge\build.ps1`, see below). It
 installs to *Program Files\Arcis Bridge*, allows the bridge through Windows Firewall,
 adds a Start Menu entry and starts it; the bridge then opens its Setup page and starts
 with Windows from then on. Uninstall it from *Settings › Apps* like any program.
