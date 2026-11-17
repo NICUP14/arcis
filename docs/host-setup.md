@@ -6,8 +6,9 @@ Picture and sound come from **Moonlight** (phone) + **Sunshine** or **Apollo**
 1. **On the computer**
    - Install [Sunshine](https://github.com/LizardByte/Sunshine) or
      [Apollo](https://github.com/ClassicOldSong/Apollo) and set it up.
-   - Run the [Arcis Bridge](bridge.md). On its status page (tray › Status page) enter
-     your Sunshine login once, so it can pair Moonlight for you.
+   - Run the [Arcis Bridge](bridge.md). Its **Setup** page opens by itself: it can
+     install Sunshine, give the bridge a Sunshine login (so it pairs Moonlight for you)
+     and install VB-Cable for the microphone.
 2. **On the phone**
    - Install **Moonlight**.
    - In Arcis Home on the glasses, open **Computers** › **Add computer** (or the

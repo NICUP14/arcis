@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 )
 
@@ -53,5 +54,41 @@ func TestFormPostsOnlyFromThePageItself(t *testing.T) {
 		if got := sameOrigin(req(c.host, c.origin), 41991); got != c.ok {
 			t.Errorf("host %s origin %s: %v, want %v", c.host, c.origin, got, c.ok)
 		}
+	}
+}
+
+func TestSetupPageAndActions(t *testing.T) {
+	ran := make(chan string, 1)
+	h := handler(41991, Handlers{
+		Info: func() Info {
+			return Info{Host: "PC", Port: 41990, PIN: "123456", Fingerprint: "ab", Sunshine: "set your Sunshine login below"}
+		},
+		Setup: func() SetupInfo { return SetupInfo{Supported: true, SunshineInstalled: true, SunshineHasLogin: false} },
+		Act:   func(a string) error { ran <- a; return nil },
+	})
+	get := httptest.NewRecorder()
+	h.ServeHTTP(get, httptest.NewRequest(http.MethodGet, "http://127.0.0.1:41991/setup", nil))
+	body := get.Body.String()
+	for _, want := range []string{"Pair your phone", "data:image/png;base64,", "Create a Sunshine login for Arcis", "Install VB-Cable"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("setup page lacks %q", want)
+		}
+	}
+
+	post := func(origin string) int {
+		r := httptest.NewRequest(http.MethodPost, "http://127.0.0.1:41991/setup/login", nil)
+		r.Header.Set("Origin", origin)
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		return w.Code
+	}
+	if code := post("https://evil.example"); code != http.StatusForbidden {
+		t.Fatalf("foreign post: %d", code)
+	}
+	if code := post("http://127.0.0.1:41991"); code != http.StatusSeeOther {
+		t.Fatalf("own post: %d", code)
+	}
+	if a := <-ran; a != "login" {
+		t.Fatalf("ran %q", a)
 	}
 }

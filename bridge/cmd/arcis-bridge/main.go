@@ -24,6 +24,7 @@ import (
 	"github.com/NICUP14/arcis/bridge/internal/pairing"
 	"github.com/NICUP14/arcis/bridge/internal/proto"
 	"github.com/NICUP14/arcis/bridge/internal/server"
+	"github.com/NICUP14/arcis/bridge/internal/setup"
 	"github.com/NICUP14/arcis/bridge/internal/status"
 	"github.com/NICUP14/arcis/bridge/internal/sunshine"
 	"github.com/NICUP14/arcis/bridge/internal/tray"
@@ -52,6 +53,7 @@ func main() {
 
 	statusURL := fmt.Sprintf("http://127.0.0.1:%d/", *statusPort)
 	pairURL := statusURL + "pair"
+	setupURL := statusURL + "setup"
 	if tray.AlreadyRunning() {
 		// Started again (Start Menu, sign-in, double-click): just show the running one.
 		tray.OpenURL(statusURL)
@@ -119,7 +121,7 @@ func main() {
 
 	if *statusPort != 0 {
 		go func() {
-			err := status.Serve(*statusPort, func() status.Info {
+			err := status.Serve(*statusPort, status.Handlers{Info: func() status.Info {
 				info := status.Info{
 					Host: host, Version: Version, Port: *port, PIN: store.PIN(), Fingerprint: fp,
 					Addresses: status.LocalAddresses(), Connected: srv.Connected(), LastPhone: srv.LastPhone(),
@@ -136,7 +138,18 @@ func main() {
 					info.Devices = append(info.Devices, status.Device{Name: d.Name, LastSeen: seen})
 				}
 				return info
-			}, sun.set)
+			},
+				SetSunshine: sun.set,
+				Setup: func() status.SetupInfo {
+					st := setup.Detect()
+					return status.SetupInfo{
+						Supported: st.Supported, SunshineInstalled: st.SunshineInstalled,
+						SunshineHasLogin: st.SunshineHasLogin, MicReady: st.MicReady,
+						Autostart: tray.LoadSettings(*configDir).AutostartWanted(),
+					}
+				},
+				Act: sun.act,
+			})
 			if err != nil {
 				logger.Printf("status page unavailable: %v", err)
 			}
@@ -158,8 +171,8 @@ func main() {
 	if !settings.Welcomed {
 		settings.Welcomed = true
 		_ = tray.SaveSettings(*configDir, settings)
-		if *statusPort != 0 && len(store.Devices()) == 0 {
-			tray.OpenURL(pairURL)
+		if *statusPort != 0 {
+			tray.OpenURL(setupURL)
 		}
 	}
 
@@ -182,7 +195,7 @@ func main() {
 		OnQuit:    func() { logger.Print("quit from the tray") },
 	}
 	if *statusPort != 0 {
-		trayOpts.StatusURL, trayOpts.PairURL = statusURL, pairURL
+		trayOpts.StatusURL, trayOpts.PairURL, trayOpts.SetupURL = statusURL, pairURL, setupURL
 	}
 	if logFile != nil {
 		trayOpts.LogFile = logFile.Name()
@@ -259,6 +272,39 @@ func (s sunshineLogin) state() (string, bool) {
 	default:
 		return err.Error(), false
 	}
+}
+
+// act runs a setup page action.
+func (s sunshineLogin) act(action string) error {
+	switch action {
+	case "sunshine":
+		return setup.InstallSunshine()
+	case "vbcable":
+		return setup.InstallVBCable()
+	case "login":
+		user, pass, err := setup.CreateSunshineLogin()
+		if err != nil {
+			return err
+		}
+		if err := sunshine.SaveLogin(s.dir, sunshine.Login{User: user, Pass: pass}); err != nil {
+			return err
+		}
+		// Sunshine restarts to pick up the login: wait until it accepts it.
+		c := sunshine.New(s.url, user, pass)
+		for deadline := time.Now().Add(40 * time.Second); ; {
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			err := c.Check(ctx)
+			cancel()
+			if err == nil {
+				return nil
+			}
+			if time.Now().After(deadline) {
+				return fmt.Errorf("Sunshine didn't come back with the new login: %w", err)
+			}
+			time.Sleep(time.Second)
+		}
+	}
+	return fmt.Errorf("unknown action %q", action)
 }
 
 // set checks a login with Sunshine (if it is running) and stores it.

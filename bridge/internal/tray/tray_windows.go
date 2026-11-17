@@ -38,6 +38,7 @@ func onReady(o Options) {
 	state.Disable()
 	systray.AddSeparator()
 	pair := systray.AddMenuItem("Pair a phone…", "Show the pairing code")
+	setupItem := systray.AddMenuItem("Setup…", "Sunshine, Moonlight pairing, microphone")
 	status := systray.AddMenuItem("Status page", "Paired phones and addresses")
 	logItem := systray.AddMenuItem("Open log", "")
 	if o.LogFile == "" {
@@ -79,6 +80,8 @@ func onReady(o Options) {
 			select {
 			case <-pair.ClickedCh:
 				OpenURL(o.PairURL)
+			case <-setupItem.ClickedCh:
+				OpenURL(o.SetupURL)
 			case <-status.ClickedCh:
 				OpenURL(o.StatusURL)
 			case <-logItem.ClickedCh:

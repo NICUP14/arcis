@@ -24,9 +24,15 @@ pairing PIN, its addresses and the paired phones.
 **On Windows** the bridge has no console window; it lives in the notification area
 (by the clock; Windows 11 may first put it under **^**, drag it out to keep it visible).
 The icon is grey while waiting and green while a phone is connected. Its menu:
-*Pair a phone…*, *Status page*, *Open log*, *Start with Windows* (on by default) and
-*Quit*. Starting it a second time just opens the status page. The first run opens the
-pairing page by itself. The log is `bridge.log` in the config directory
+*Pair a phone…*, *Setup…*, *Status page*, *Open log*, *Start with Windows* (on by
+default) and *Quit*. Starting it a second time just opens the status page.
+
+The first run opens the **Setup** page (http://127.0.0.1:41991/setup), a checklist:
+pair your phone (QR code), Sunshine (an *Install Sunshine* button using winget),
+Moonlight pairing (*Create a Sunshine login for Arcis* on a new Sunshine, or enter your
+existing Sunshine login) and the phone as a microphone (*Install VB-Cable* downloads
+VB-Audio's official driver and starts its installer). Windows asks for admin rights
+where needed. The log is `bridge.log` in the config directory
 (`%AppData%\arcis-bridge`). On Linux and macOS it keeps running in the terminal.
 
 Options:
@@ -62,8 +68,9 @@ can't be impersonated. Pairing is remembered on both sides.
 
 When Moonlight pairs, it shows a 4-digit PIN that normally has to be typed into
 Sunshine's web page. Arcis reads that PIN on the phone and the bridge enters it into
-Sunshine itself. For that, save your Sunshine web login on the bridge's status page
-(*Moonlight pairing* card). It is checked with Sunshine and stored in `sunshine.json`
+Sunshine itself. For that, the bridge needs a Sunshine web login: on the **Setup** page either let it
+create one for itself (new Sunshine without a login; random password, Sunshine
+restarts) or enter the login you already use. It is checked with Sunshine and stored in `sunshine.json`
 in the config directory, encrypted for your Windows user (on Linux/macOS: a file only
 you can read). Another Sunshine address: `-sunshine-url https://localhost:47990`.
 

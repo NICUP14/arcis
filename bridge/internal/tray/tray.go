@@ -22,6 +22,8 @@ type Options struct {
 	StatusURL string
 	// PairURL is the page with the pairing code.
 	PairURL string
+	// SetupURL is the setup checklist (Sunshine, Moonlight pairing, microphone).
+	SetupURL string
 	// LogFile is opened by "Open log". May be empty.
 	LogFile string
 	// ConfigDir holds settings.json.
@@ -34,7 +36,7 @@ type Options struct {
 type Settings struct {
 	// Autostart: start when the user signs in. nil = never chosen (default on).
 	Autostart *bool `json:"autostart,omitempty"`
-	// Welcomed is set once the first run has shown the pairing page.
+	// Welcomed is set once the first run has shown the setup page.
 	Welcomed bool `json:"welcomed,omitempty"`
 }
 
