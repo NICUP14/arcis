@@ -13,12 +13,15 @@ XREAL / VITURE / RayNeo / Rokid, portable monitors, TVs) into a big screen you c
   *Landscape* (full-screen trackpad + speech-to-text).
 - No root, no Shizuku, no DeX.
 
+**Tested on:** Galaxy S20 FE (Android 13) with XREAL 1S glasses; Arcis Bridge on
+Windows 11. The Linux and macOS bridges build but have not been tested yet.
+
 ## Repository layout
 
 | Path | What |
 |---|---|
 | `android/` | Android app (Kotlin, Jetpack Compose). `app` = Android code, `core` = pure-Kotlin logic with JVM unit tests |
-| `bridge/` | Arcis Bridge (Go, pure Go, standalone binaries for Windows / Linux / macOS) |
+| `bridge/` | Arcis Bridge (Go, pure Go): Windows (tested), Linux / macOS (builds, **untested**) |
 | `docs/` | Setup guides |
 
 ## Build
