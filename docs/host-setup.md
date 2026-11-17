@@ -41,6 +41,8 @@ Picture and sound come from **Moonlight** (phone) + **Sunshine** or **Apollo**
   button to the navigation bar. If the phone stops reacting, drag the lock icon to
   unlock, or turn Game Booster off for Moonlight (Game Booster settings → Block during
   game / app list).
+- **Left-handed**: Arcis Settings › *Hand* › Left moves the scroll strip to the left
+  edge and the keyboard / mic buttons to the bottom-left corner (mic nearest the corner).
 - **One tap from sleep**: opening a computer whose bridge doesn't answer sends
   Wake-on-LAN and keeps trying every 2 s for up to a minute (the tile shows *Waking…*);
   the stream starts as soon as the computer is up. If it doesn't wake: check it's plugged

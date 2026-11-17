@@ -15,8 +15,10 @@ data class GestureConfig(
     val shapesEnabled: Boolean = true,
     /** Height of the bottom-edge strip that starts switch / home / recents gestures. */
     val bottomEdge: Float = 90f,
-    /** Width of the right-edge scroll strip (0 disables it). */
-    val rightEdge: Float = 0f,
+    /** Width of the edge scroll strip (0 disables it). */
+    val scrollEdge: Float = 0f,
+    /** The scroll strip is on the left edge (left-handed) instead of the right. */
+    val scrollEdgeLeft: Boolean = false,
     /** Horizontal distance on the bottom edge that switches app. */
     val switchDistance: Float = 160f,
     /** Upward distance for Home (quick release) / Recents (hold). */

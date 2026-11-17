@@ -14,7 +14,7 @@ class TrackpadGestureEngineTest {
     // 2000 x 1000 landscape surface, bottom edge = last 90 px, right edge = last 100 px.
     @Before
     fun setUp() {
-        engine = TrackpadGestureEngine(2000f, 1000f, GestureConfig(rightEdge = 100f)) { out += it }
+        engine = TrackpadGestureEngine(2000f, 1000f, GestureConfig(scrollEdge = 100f)) { out += it }
     }
 
     // ---- scripting helpers -------------------------------------------------
@@ -292,6 +292,25 @@ class TrackpadGestureEngineTest {
         val scrolls = only<Gesture.Scroll>()
         assertTrue(scrolls.isNotEmpty())
         assertTrue(only<Gesture.PointerMove>().isEmpty())
+    }
+
+    @Test
+    fun leftHandedScrollStripIsOnTheLeft() {
+        engine = TrackpadGestureEngine(2000f, 1000f, GestureConfig(scrollEdge = 100f, scrollEdgeLeft = true)) { out += it }
+        down(0, 50f, 500f)
+        move(0, 50f, 400f)
+        move(0, 50f, 300f)
+        up(0)
+        assertTrue(only<Gesture.Scroll>().isNotEmpty())
+        assertTrue(only<Gesture.PointerMove>().isEmpty())
+        // The right edge is plain trackpad then.
+        out.clear()
+        down(0, 1950f, 500f)
+        move(0, 1950f, 400f)
+        move(0, 1950f, 300f)
+        up(0)
+        assertTrue(only<Gesture.Scroll>().isEmpty())
+        assertTrue(only<Gesture.PointerMove>().isNotEmpty())
     }
 
     // ---- bottom edge -------------------------------------------------------

@@ -22,7 +22,7 @@ class TrackpadGestureEngine(
     var config: GestureConfig = GestureConfig(),
     private val sink: (Gesture) -> Unit,
 ) {
-    private enum class Zone { TRACKPAD, BOTTOM_EDGE, RIGHT_EDGE }
+    private enum class Zone { TRACKPAD, BOTTOM_EDGE, SCROLL_EDGE }
 
     private enum class Mode {
         IDLE,
@@ -122,7 +122,7 @@ class TrackpadGestureEngine(
                     mode = Mode.BOTTOM_PENDING
                     timerAt = null
                 }
-                Zone.RIGHT_EDGE -> {
+                Zone.SCROLL_EDGE -> {
                     mode = Mode.EDGE_SCROLL
                     timerAt = null
                 }
@@ -358,7 +358,8 @@ class TrackpadGestureEngine(
 
     private fun zoneOf(x: Float, y: Float): Zone = when {
         y >= height - config.bottomEdge -> Zone.BOTTOM_EDGE
-        config.rightEdge > 0f && x >= width - config.rightEdge -> Zone.RIGHT_EDGE
+        config.scrollEdge > 0f && config.scrollEdgeLeft && x <= config.scrollEdge -> Zone.SCROLL_EDGE
+        config.scrollEdge > 0f && !config.scrollEdgeLeft && x >= width - config.scrollEdge -> Zone.SCROLL_EDGE
         else -> Zone.TRACKPAD
     }
 

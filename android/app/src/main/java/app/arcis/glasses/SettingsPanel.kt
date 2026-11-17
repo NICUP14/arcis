@@ -82,6 +82,19 @@ fun SettingsPanel(onDone: () -> Unit) {
             Spacer(Modifier.height(14.dp))
             LanguageSetting(language, prefs::setDictationLanguage)
             Spacer(Modifier.height(14.dp))
+            val leftHanded by prefs.leftHanded.collectAsState()
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Hand", color = GlassesColors.Text, fontSize = 16.sp)
+                    Text(
+                        "Scroll strip and keyboard / mic buttons on the " + if (leftHanded) "left" else "right",
+                        color = GlassesColors.Dim,
+                        fontSize = 12.sp,
+                    )
+                }
+                Button(if (leftHanded) "Left" else "Right", enabled = true) { prefs.setLeftHanded(!leftHanded) }
+            }
+            Spacer(Modifier.height(14.dp))
             val statusBar by prefs.statusBar.collectAsState()
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {

@@ -1,5 +1,7 @@
 package app.arcis.controller
 
+import androidx.compose.runtime.collectAsState
+import app.arcis.ArcisApp
 import app.arcis.media.MediaState
 import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.background
@@ -97,31 +99,44 @@ fun ControllerScreen(
         onGesture(g)
     }
     val landscape = mode == ControllerMode.LANDSCAPE
+    val leftHanded by ArcisApp.instance.controllerPrefs.leftHanded.collectAsState()
+    // The thumb's side: buttons in its bottom corner (clear of the edge strips), the rest opposite.
+    val thumbCorner = if (leftHanded) Alignment.BottomStart else Alignment.BottomEnd
+    val otherCorner = if (leftHanded) Alignment.BottomEnd else Alignment.BottomStart
     val keyboardSpace = relayOpen || keyboardShowing
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         Column(Modifier.fillMaxSize()) {
             Box(Modifier.fillMaxWidth().weight(1f)) {
                 // New view per orientation so the edge zones match the new size.
-                key(landscape) { Trackpad(rightEdgeScroll = true, onGesture = forward, modifier = Modifier.fillMaxSize()) }
+                key(landscape) { Trackpad(onGesture = forward, modifier = Modifier.fillMaxSize()) }
                 ThumbButtons(
                     keyboardOn = keyboardSpace,
+                    micInCorner = !leftHanded,
                     onKeyboard = onKeyboard,
                     onDictationStart = onDictationStart,
                     onDictationStop = onDictationStop,
                     modifier = Modifier
-                        .align(Alignment.BottomEnd)
+                        .align(thumbCorner)
                         .then(if (keyboardSpace) Modifier else Modifier.navigationBarInsets())
-                        // Clear of the bottom-edge swipe zone and the right-edge scroll strip.
-                        .padding(end = EDGE_ZONE + 10.dp, bottom = EDGE_ZONE + 10.dp),
+                        // Clear of the bottom-edge swipe zone and the edge scroll strip.
+                        .padding(
+                            start = if (leftHanded) EDGE_ZONE + 10.dp else 0.dp,
+                            end = if (leftHanded) 0.dp else EDGE_ZONE + 10.dp,
+                            bottom = EDGE_ZONE + 10.dp,
+                        ),
                 )
                 if (media.available) {
                     MediaChip(
                         media.active,
                         onMediaToggle,
                         Modifier
-                            .align(Alignment.BottomStart)
+                            .align(otherCorner)
                             .then(if (keyboardSpace) Modifier else Modifier.navigationBarInsets())
-                            .padding(start = 16.dp, bottom = EDGE_ZONE + 10.dp),
+                            .padding(
+                                start = if (leftHanded) 0.dp else 16.dp,
+                                end = if (leftHanded) 16.dp else 0.dp,
+                                bottom = EDGE_ZONE + 10.dp,
+                            ),
                     )
                 }
             }
@@ -137,7 +152,8 @@ fun ControllerScreen(
         }
         // Faint feedback label, for sighted checks only.
         Text(last, color = Hint, fontSize = 12.sp, modifier = Modifier.align(Alignment.TopCenter).padding(16.dp))
-        ModeButton(mode, onToggleMode, Modifier.align(Alignment.TopStart))
+        // Away from the thumb, so it isn't hit by accident.
+        ModeButton(mode, onToggleMode, Modifier.align(if (leftHanded) Alignment.TopEnd else Alignment.TopStart))
     }
 }
 
@@ -148,10 +164,10 @@ private fun Modifier.navigationBarInsets(): Modifier =
     windowInsetsPadding(WindowInsets.navigationBarsIgnoringVisibility.only(WindowInsetsSides.End + WindowInsetsSides.Bottom))
 
 @Composable
-private fun Trackpad(rightEdgeScroll: Boolean, onGesture: (Gesture) -> Unit, modifier: Modifier) {
+private fun Trackpad(onGesture: (Gesture) -> Unit, modifier: Modifier) {
     AndroidView(
         modifier = modifier,
-        factory = { ctx -> TrackpadView(ctx, rightEdgeScroll, onGesture) },
+        factory = { ctx -> TrackpadView(ctx, onGesture) },
     )
 }
 
@@ -177,18 +193,25 @@ private fun MediaChip(active: Boolean, onToggle: () -> Unit, modifier: Modifier)
     }
 }
 
-/** Keyboard + mic, side by side; the mic (held most) is nearest the corner. */
+/** Keyboard + mic, side by side; the mic (held most) is nearest the thumb's corner. */
 @Composable
 private fun ThumbButtons(
     keyboardOn: Boolean,
+    micInCorner: Boolean,
     onKeyboard: () -> Unit,
     onDictationStart: () -> Unit,
     onDictationStop: () -> Unit,
     modifier: Modifier,
 ) {
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        KeyboardButton(keyboardOn, onKeyboard)
-        MicButton(onDictationStart, onDictationStop)
+        // Right hand: [keyboard][mic] in the bottom-right. Left hand: [mic][keyboard] bottom-left.
+        if (micInCorner) {
+            KeyboardButton(keyboardOn, onKeyboard)
+            MicButton(onDictationStart, onDictationStop)
+        } else {
+            MicButton(onDictationStart, onDictationStop)
+            KeyboardButton(keyboardOn, onKeyboard)
+        }
     }
 }
 

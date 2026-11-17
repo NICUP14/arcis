@@ -90,6 +90,16 @@ class ControllerPrefs(context: Context) {
         prefs.edit().putBoolean(KEY_BANNERS_STREAMING, on).apply()
     }
 
+    private val _leftHanded = MutableStateFlow(prefs.getBoolean(KEY_LEFT_HANDED, false))
+
+    /** Left-handed layout: scroll strip on the left edge, thumb buttons bottom-left. */
+    val leftHanded: StateFlow<Boolean> = _leftHanded.asStateFlow()
+
+    fun setLeftHanded(left: Boolean) {
+        _leftHanded.value = left
+        prefs.edit().putBoolean(KEY_LEFT_HANDED, left).apply()
+    }
+
     fun set(mode: ControllerMode) {
         _mode.value = mode
         prefs.edit().putString(KEY_MODE, mode.name).apply()
@@ -101,6 +111,7 @@ class ControllerPrefs(context: Context) {
         private const val KEY_SCROLL_SPEED = "scroll_speed"
         private const val KEY_DICTATION_LANGUAGE = "dictation_language"
         private const val KEY_STATUS_BAR = "status_bar"
+        private const val KEY_LEFT_HANDED = "left_handed"
         private const val KEY_BANNERS = "banners"
         private const val KEY_BANNERS_STREAMING = "banners_only_streaming"
         const val DEFAULT_POINTER_SPEED = 1f

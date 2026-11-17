@@ -23,13 +23,13 @@ import app.arcis.core.input.TrackpadGestureEngine
 
 /**
  * Black, full-size touch surface that drives [TrackpadGestureEngine].
- * Draws only faint guides (bottom-edge switch strip, optional right-edge scroll
- * strip) so the OLED stays dark and the phone can be used without looking.
+ * Draws only faint guides (bottom-edge switch strip, edge scroll strip on the thumb's
+ * side: right, or left for left-handed use) so the OLED stays dark and the phone can be
+ * used without looking.
  */
 @SuppressLint("ViewConstructor")
 class TrackpadView(
     context: Context,
-    private val rightEdgeScroll: Boolean,
     private val onGesture: (Gesture) -> Unit,
 ) : View(context) {
 
@@ -58,7 +58,8 @@ class TrackpadView(
         density = resources.displayMetrics.density,
         touchSlop = dp(8f),
         bottomEdge = dp(44f),
-        rightEdge = if (rightEdgeScroll) dp(44f) else 0f,
+        scrollEdge = dp(44f),
+        scrollEdgeLeft = ArcisApp.instance.controllerPrefs.leftHanded.value,
         switchDistance = dp(60f),
         homeDistance = dp(50f),
         recentsStep = dp(48f),
@@ -67,6 +68,7 @@ class TrackpadView(
 
     // Space the (hidden) system navigation bar can slide into. Edge zones are kept inside it
     // so a swipe meant for Arcis never lands on Back/Home/Recents when the bar reappears.
+    private var insetLeft = 0
     private var insetRight = 0
     private var insetBottom = 0
 
@@ -75,6 +77,7 @@ class TrackpadView(
         val nav = compat.getInsetsIgnoringVisibility(
             WindowInsetsCompat.Type.navigationBars() or WindowInsetsCompat.Type.displayCutout(),
         )
+        insetLeft = nav.left
         insetRight = nav.right
         insetBottom = nav.bottom
         resizeEngine()
@@ -85,15 +88,18 @@ class TrackpadView(
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) = resizeEngine()
 
     private fun resizeEngine() {
-        engine.resize((width - insetRight).toFloat(), (height - insetBottom).toFloat())
+        engine.resize((width - insetLeft - insetRight).toFloat(), (height - insetBottom).toFloat())
     }
 
     override fun onDraw(canvas: Canvas) {
-        val w = width - insetRight
+        val left = insetLeft.toFloat()
+        val right = (width - insetRight).toFloat()
         val bottom = height - insetBottom - engine.config.bottomEdge
-        canvas.drawLine(w * 0.3f, bottom, w * 0.7f, bottom, guidePaint)
-        if (engine.config.rightEdge > 0f) {
-            val x = w - engine.config.rightEdge
+        val span = right - left
+        canvas.drawLine(left + span * 0.3f, bottom, left + span * 0.7f, bottom, guidePaint)
+        val c = engine.config
+        if (c.scrollEdge > 0f) {
+            val x = if (c.scrollEdgeLeft) left + c.scrollEdge else right - c.scrollEdge
             canvas.drawLine(x, height * 0.2f, x, bottom - dp(16f), guidePaint)
         }
     }
@@ -108,7 +114,7 @@ class TrackpadView(
             else -> return true
         }
         val points = (0 until event.pointerCount).map {
-            TouchPoint(event.getPointerId(it), event.getX(it), event.getY(it))
+            TouchPoint(event.getPointerId(it), event.getX(it) - insetLeft, event.getY(it))
         }
         val actionId = event.getPointerId(event.actionIndex)
         if (event.actionMasked == MotionEvent.ACTION_DOWN) applySpeeds()
@@ -117,13 +123,16 @@ class TrackpadView(
         return true
     }
 
-    /** The speed settings can change on the glasses' Settings screen; read them as a stroke begins. */
+    /** Speeds and handedness can change on the glasses' Settings screen; read them as a stroke begins. */
     private fun applySpeeds() {
         val prefs = ArcisApp.instance.controllerPrefs
         val pointer = prefs.pointerSpeed.value
         val scroll = prefs.scrollSpeed.value
-        if (engine.config.pointerSpeed != pointer || engine.config.scrollSpeed != scroll) {
-            engine.config = engine.config.copy(pointerSpeed = pointer, scrollSpeed = scroll)
+        val left = prefs.leftHanded.value
+        val c = engine.config
+        if (c.pointerSpeed != pointer || c.scrollSpeed != scroll || c.scrollEdgeLeft != left) {
+            engine.config = c.copy(pointerSpeed = pointer, scrollSpeed = scroll, scrollEdgeLeft = left)
+            if (c.scrollEdgeLeft != left) invalidate()
         }
     }
 
