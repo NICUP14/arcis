@@ -37,6 +37,9 @@ type Server struct {
 	Wake func(mac string) error
 	// OpenMic opens the virtual microphone on first use. May be nil (no mic).
 	OpenMic func() (mic.Sink, error)
+	// SunshinePIN completes Moonlight's pairing with Sunshine on this computer using the
+	// PIN the phone read from Moonlight. fromIP is the phone's address. May be nil.
+	SunshinePIN func(pin, name, fromIP string) error
 
 	micMu     sync.Mutex
 	micSink   mic.Sink
@@ -251,6 +254,10 @@ func (s *Server) session(c net.Conn, r *proto.Reader) {
 		case proto.TypeAudio:
 			s.playMic(m.Audio)
 			continue
+		case proto.TypeSunshinePIN:
+			// Takes a few seconds (waits for Sunshine to see Moonlight's request).
+			go s.sunshinePIN(sc, m, c.RemoteAddr())
+			continue
 		case proto.TypeWake:
 			if s.Wake != nil {
 				if err := s.Wake(m.MAC); err != nil {
@@ -265,6 +272,30 @@ func (s *Server) session(c net.Conn, r *proto.Reader) {
 			s.logf("%s: %v", m.T, err)
 		}
 	}
+}
+
+func (s *Server) sunshinePIN(sc *sessionConn, m proto.Message, remote net.Addr) {
+	res := proto.Message{T: proto.TypeSunshineResult}
+	from := ""
+	if ta, ok := remote.(*net.TCPAddr); ok {
+		from = ta.IP.String()
+	}
+	switch {
+	case s.SunshinePIN == nil:
+		res.Msg = "This Arcis Bridge can't pair Moonlight"
+	case len(m.PIN) != 4:
+		res.Msg = "Moonlight's PIN should have 4 digits"
+	default:
+		if err := s.SunshinePIN(m.PIN, m.Name, from); err != nil {
+			res.Msg = err.Error()
+		}
+	}
+	if res.Msg == "" {
+		s.logf("Moonlight on %s paired with Sunshine", m.Name)
+	} else {
+		s.logf("Moonlight pairing for %s: %s", m.Name, res.Msg)
+	}
+	_ = sc.write(res)
 }
 
 func (s *Server) perform(m proto.Message, remX, remY *float64) error {

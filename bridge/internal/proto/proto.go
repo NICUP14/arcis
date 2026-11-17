@@ -45,6 +45,9 @@ const (
 	TypeClip  = "clip"  // both directions: {text} clipboard text
 	TypeWake  = "wake"  // phone -> bridge: {mac} broadcast Wake-on-LAN (wake relay)
 	TypeAudio = "audio" // phone -> bridge: {audio} 16 kHz mono s16le PCM for the virtual mic
+
+	TypeSunshinePIN    = "sunshine_pin"    // phone -> bridge: {pin, name} Moonlight's pairing PIN for Sunshine
+	TypeSunshineResult = "sunshine_result" // bridge -> phone: {msg} empty msg = paired
 )
 
 // Mouse buttons.

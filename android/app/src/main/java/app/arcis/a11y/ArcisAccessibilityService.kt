@@ -1,5 +1,6 @@
 package app.arcis.a11y
 
+import app.arcis.core.net.MoonlightPin
 import android.accessibilityservice.AccessibilityService
 import android.content.ComponentName
 import android.graphics.PointF
@@ -92,7 +93,31 @@ class ArcisAccessibilityService : AccessibilityService() {
             updateForegroundPackage()
             updateKeyboardOnPhone()
         }
-        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) noteActivityEvent(event)
+        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            noteActivityEvent(event)
+            if (HostTarget.isMoonlight(event.packageName?.toString())) noteMoonlightDialog(event)
+        }
+    }
+
+    private var lastMoonlightPin: String? = null
+    private var lastMoonlightPinAt = 0L
+
+    /** Moonlight's pairing dialog shows a PIN: pass it on once (see ArcisApp.onMoonlightPin). */
+    private fun noteMoonlightDialog(event: AccessibilityEvent) {
+        val text = StringBuilder(event.text.joinToString(" "))
+        event.source?.let { collectText(it, text, budget = intArrayOf(150)) }
+        val pin = MoonlightPin.find(text.toString()) ?: return
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (pin == lastMoonlightPin && now - lastMoonlightPinAt < 120_000) return
+        lastMoonlightPin = pin
+        lastMoonlightPinAt = now
+        ArcisApp.instance.onMoonlightPin(pin)
+    }
+
+    private fun collectText(node: AccessibilityNodeInfo, out: StringBuilder, budget: IntArray) {
+        if (budget[0]-- <= 0) return
+        node.text?.let { out.append(' ').append(it) }
+        for (i in 0 until node.childCount) node.getChild(i)?.let { collectText(it, out, budget) }
     }
 
     override fun onInterrupt() = Unit

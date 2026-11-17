@@ -28,6 +28,10 @@ type Info struct {
 	Connected   int
 	LastPhone   string
 	InputError  string
+	// Sunshine describes the stored Sunshine login (for pairing Moonlight by itself);
+	// SunshineOK when Sunshine accepts it.
+	Sunshine   string
+	SunshineOK bool
 }
 
 // Device is a paired phone.
@@ -37,13 +41,16 @@ type Device struct {
 }
 
 var page = template.Must(template.New("status").Parse(`<!doctype html>
-<html><head><meta charset="utf-8"><meta http-equiv="refresh" content="5">
+<html><head><meta charset="utf-8">
 <title>Arcis Bridge</title>
+<script>setInterval(function(){var a=document.activeElement;if(!a||a.tagName!=="INPUT")location.reload()},5000)</script>
 <style>
 body{font-family:system-ui,sans-serif;background:#0d0f14;color:#e8eaf0;max-width:720px;margin:40px auto;padding:0 20px}
 h1{font-weight:500}.pin{font-size:56px;letter-spacing:10px;color:#6ea8ff;margin:8px 0}
 .card{background:#161922;border:1px solid #262a33;border-radius:14px;padding:18px 22px;margin:16px 0}
-.dim{color:#8a90a0}.warn{color:#ffb35a}code{color:#c9d1e0}
+.dim{color:#8a90a0}.warn{color:#ffb35a}.ok{color:#4cd98a}code{color:#c9d1e0}a{color:#6ea8ff}
+input{background:#0d0f14;color:#e8eaf0;border:1px solid #262a33;border-radius:8px;padding:8px 10px;margin:4px 8px 4px 0}
+button{background:#1e3a6e;color:#e8eaf0;border:0;border-radius:8px;padding:9px 16px;cursor:pointer}
 </style></head><body>
 <h1>Arcis Bridge <span class="dim">{{.Version}}</span></h1>
 {{if .InputError}}<div class="card warn">Input is not available: {{.InputError}}</div>{{end}}
@@ -58,6 +65,16 @@ h1{font-weight:500}.pin{font-size:56px;letter-spacing:10px;color:#6ea8ff;margin:
   <div>{{if .Connected}}Connected: <b>{{.LastPhone}}</b>{{else}}<span class="dim">No phone connected</span>{{end}}</div>
   <div class="dim" style="margin-top:8px">Paired phones:</div>
   {{range .Devices}}<div>{{.Name}} <span class="dim">{{.LastSeen}}</span></div>{{else}}<div class="dim">none yet</div>{{end}}
+</div>
+<div class="card">
+  <div>Moonlight pairing: <span class="{{if .SunshineOK}}ok{{else}}warn{{end}}">{{.Sunshine}}</span></div>
+  <div class="dim" style="margin:6px 0 10px">With your Sunshine login (the one for its web page) the bridge enters
+  Moonlight's PIN into Sunshine for you. It is stored on this computer only.</div>
+  <form method="post" action="/sunshine">
+    <input name="user" placeholder="Sunshine username" autocomplete="off">
+    <input name="pass" type="password" placeholder="Password" autocomplete="off">
+    <button>Save</button>
+  </form>
 </div>
 </body></html>`))
 
@@ -93,8 +110,9 @@ func PairLink(i Info) string {
 	return "arcis://pair?" + v.Encode()
 }
 
-// Serve runs the page on 127.0.0.1:port until the listener fails.
-func Serve(port int, info func() Info) error {
+// Serve runs the page on 127.0.0.1:port until the listener fails. setSunshine stores a
+// Sunshine login from the page's form (nil: the form reports it can't).
+func Serve(port int, info func() Info, setSunshine func(user, pass string) error) error {
 	ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
 	if err != nil {
 		return err
@@ -104,6 +122,21 @@ func Serve(port int, info func() Info) error {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Header().Set("Cache-Control", "no-store")
 		_ = page.Execute(w, info())
+	})
+	mux.HandleFunc("POST /sunshine", func(w http.ResponseWriter, r *http.Request) {
+		if !sameOrigin(r, port) {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
+		if setSunshine == nil {
+			http.Error(w, "not available", http.StatusNotImplemented)
+			return
+		}
+		if err := setSunshine(strings.TrimSpace(r.PostFormValue("user")), r.PostFormValue("pass")); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		http.Redirect(w, r, "/", http.StatusSeeOther)
 	})
 	mux.HandleFunc("/pair", func(w http.ResponseWriter, r *http.Request) {
 		i := info()
@@ -121,6 +154,24 @@ func Serve(port int, info func() Info) error {
 	})
 	srv := &http.Server{Handler: mux, ReadHeaderTimeout: 5 * time.Second}
 	return srv.Serve(ln)
+}
+
+// sameOrigin accepts form posts only from this page itself: the Host header must be the
+// local address (no DNS rebinding) and a browser's Origin, if sent, must match it
+// (no other website posting into it).
+func sameOrigin(r *http.Request, port int) bool {
+	allowed := map[string]bool{
+		fmt.Sprintf("127.0.0.1:%d", port): true,
+		fmt.Sprintf("localhost:%d", port): true,
+	}
+	if !allowed[r.Host] {
+		return false
+	}
+	if o := r.Header.Get("Origin"); o != "" {
+		u, err := url.Parse(o)
+		return err == nil && u.Scheme == "http" && allowed[u.Host]
+	}
+	return true
 }
 
 // LocalAddresses lists this computer's non-loopback IPv4 addresses (LAN, Tailscale, ...).

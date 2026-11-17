@@ -2,6 +2,7 @@ package server
 
 import (
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"net"
 	"strings"
@@ -233,5 +234,42 @@ func TestWrongPINAndUnknownToken(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	if len(in.entries()) != 0 {
 		t.Fatalf("unauthenticated input performed: %v", in.entries())
+	}
+}
+
+func TestSunshinePIN(t *testing.T) {
+	s, _, addr := startServer(t)
+	type call struct{ pin, name, from string }
+	got := make(chan call, 1)
+	s.SunshinePIN = func(pin, name, from string) error {
+		got <- call{pin, name, from}
+		if pin == "0000" {
+			return errors.New("Sunshine didn't accept the PIN")
+		}
+		return nil
+	}
+	fp := certs.Fingerprint(s.Cert)
+	c, r := dial(t, addr, fp)
+	_ = proto.Write(c, proto.Message{T: proto.TypePair, PIN: s.Store.PIN(), Name: "P"})
+	paired, _ := r.Read()
+	c2, r2 := dial(t, addr, fp)
+	_ = proto.Write(c2, proto.Message{T: proto.TypeHello, Token: paired.Token})
+	_, _ = r2.Read()
+
+	_ = proto.Write(c2, proto.Message{T: proto.TypeSunshinePIN, PIN: "1234", Name: "Galaxy"})
+	if m, _ := r2.Read(); m.T != proto.TypeSunshineResult || m.Msg != "" {
+		t.Fatalf("expected success, got %+v", m)
+	}
+	if c := <-got; c.pin != "1234" || c.name != "Galaxy" || c.from != "127.0.0.1" {
+		t.Fatalf("called with %+v", c)
+	}
+	_ = proto.Write(c2, proto.Message{T: proto.TypeSunshinePIN, PIN: "0000", Name: "Galaxy"})
+	if m, _ := r2.Read(); m.T != proto.TypeSunshineResult || m.Msg == "" {
+		t.Fatalf("expected an error, got %+v", m)
+	}
+	<-got
+	_ = proto.Write(c2, proto.Message{T: proto.TypeSunshinePIN, PIN: "12", Name: "Galaxy"})
+	if m, _ := r2.Read(); m.Msg == "" {
+		t.Fatalf("short PIN accepted: %+v", m)
 	}
 }

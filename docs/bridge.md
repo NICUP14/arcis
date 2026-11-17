@@ -58,6 +58,15 @@ The code carries all the computer's addresses (home network and Tailscale) and i
 certificate fingerprint, so a scanned computer is also reachable away from home and
 can't be impersonated. Pairing is remembered on both sides.
 
+## Pairing Moonlight with Sunshine
+
+When Moonlight pairs, it shows a 4-digit PIN that normally has to be typed into
+Sunshine's web page. Arcis reads that PIN on the phone and the bridge enters it into
+Sunshine itself. For that, save your Sunshine web login on the bridge's status page
+(*Moonlight pairing* card). It is checked with Sunshine and stored in `sunshine.json`
+in the config directory, encrypted for your Windows user (on Linux/macOS: a file only
+you can read). Another Sunshine address: `-sunshine-url https://localhost:47990`.
+
 ## Clipboard and waking
 
 - **Clipboard**: text copied on the computer is put on the phone's clipboard

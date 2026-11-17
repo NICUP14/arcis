@@ -44,6 +44,7 @@ Then any number of input messages (no replies, except pong):
 | `clip` | `text` | both directions: clipboard text (bridge sends when the computer's clipboard changes) |
 | `wake` | `mac` | the bridge broadcasts Wake-on-LAN for that MAC on its networks (wake relay) |
 | `audio` | `audio` (base64) | 20 ms of 16 kHz mono s16le PCM for the virtual microphone |
+| `sunshine_pin` | `pin`, `name` | Moonlight's 4-digit pairing PIN: the bridge enters it into Sunshine on this computer (its stored Sunshine login) and answers `{"t":"sunshine_result","msg":...}`, `msg` empty = paired |
 
 `welcome` and `paired` also carry `addresses` (where the bridge can be reached) and
 `welcome` carries `macs` (the computer's MAC addresses, for waking it later).

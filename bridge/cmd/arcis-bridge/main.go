@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -24,6 +25,7 @@ import (
 	"github.com/NICUP14/arcis/bridge/internal/proto"
 	"github.com/NICUP14/arcis/bridge/internal/server"
 	"github.com/NICUP14/arcis/bridge/internal/status"
+	"github.com/NICUP14/arcis/bridge/internal/sunshine"
 	"github.com/NICUP14/arcis/bridge/internal/tray"
 	"github.com/NICUP14/arcis/bridge/internal/wake"
 )
@@ -41,6 +43,7 @@ func main() {
 	noMic := flag.Bool("no-mic", false, "don't use the phone as a microphone")
 	micDevice := flag.String("mic-device", "", "Windows: output device that feeds the virtual mic (default: VB-Audio \"CABLE Input\")")
 	configDir := flag.String("config", defaultConfigDir(), "where the certificate and paired phones are stored")
+	sunshineURL := flag.String("sunshine-url", sunshine.DefaultURL, "Sunshine's web UI, for pairing Moonlight by itself")
 	flag.Parse()
 	if *showVersion {
 		fmt.Println("arcis-bridge", Version)
@@ -87,6 +90,8 @@ func main() {
 		Clipboard: clipboard{},
 		Wake:      wake.Send,
 	}
+	sun := sunshineLogin{dir: *configDir, url: *sunshineURL}
+	srv.SunshinePIN = sun.submitPIN
 	if !*noMic {
 		srv.OpenMic = func() (mic.Sink, error) { return mic.Open(*micDevice) }
 		defer srv.CloseMic()
@@ -122,6 +127,7 @@ func main() {
 				if inputErr != nil {
 					info.InputError = inputErr.Error()
 				}
+				info.Sunshine, info.SunshineOK = sun.state()
 				for _, d := range store.Devices() {
 					seen := "never connected"
 					if !d.LastSeen.IsZero() {
@@ -130,7 +136,7 @@ func main() {
 					info.Devices = append(info.Devices, status.Device{Name: d.Name, LastSeen: seen})
 				}
 				return info
-			})
+			}, sun.set)
 			if err != nil {
 				logger.Printf("status page unavailable: %v", err)
 			}
@@ -212,6 +218,60 @@ func (w logWriter) Write(p []byte) (int, error) {
 	}
 	_, _ = os.Stdout.Write(p)
 	return len(p), nil
+}
+
+// sunshineLogin uses the Sunshine login stored in the config dir.
+type sunshineLogin struct{ dir, url string }
+
+func (s sunshineLogin) client() (*sunshine.Client, error) {
+	l, err := sunshine.LoadLogin(s.dir)
+	if err != nil {
+		return nil, err
+	}
+	return sunshine.New(s.url, l.User, l.Pass), nil
+}
+
+func (s sunshineLogin) submitPIN(pin, name, fromIP string) error {
+	c, err := s.client()
+	if err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	return c.SubmitPIN(ctx, pin, name, fromIP)
+}
+
+// state is a line for the status page, and whether pairing Moonlight will work.
+func (s sunshineLogin) state() (string, bool) {
+	c, err := s.client()
+	if err != nil {
+		return "can't read the stored login: " + err.Error(), false
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	switch err := c.Check(ctx); {
+	case err == nil:
+		return "ready (Sunshine login: " + c.User + ")", true
+	case errors.Is(err, sunshine.ErrNoLogin):
+		return "set your Sunshine login below", false
+	case errors.Is(err, sunshine.ErrBadLogin):
+		return "Sunshine refused the stored login, enter it again", false
+	default:
+		return err.Error(), false
+	}
+}
+
+// set checks a login with Sunshine (if it is running) and stores it.
+func (s sunshineLogin) set(user, pass string) error {
+	if user == "" {
+		return errors.New("enter the Sunshine username")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := sunshine.New(s.url, user, pass).Check(ctx); err != nil && !errors.Is(err, sunshine.ErrNotRunning) {
+		return err
+	}
+	return sunshine.SaveLogin(s.dir, sunshine.Login{User: user, Pass: pass})
 }
 
 // clipboard adapts the clip package to server.Clipboard.

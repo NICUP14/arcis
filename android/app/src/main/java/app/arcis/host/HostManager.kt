@@ -111,6 +111,21 @@ class HostManager(context: Context) {
 
     private val _paired = MutableSharedFlow<SavedHost>(extraBufferCapacity = 4)
 
+    private val _notices = MutableSharedFlow<String>(extraBufferCapacity = 4)
+
+    /** Short messages from the connected computer worth showing on the glasses. */
+    val notices: SharedFlow<String> = _notices.asSharedFlow()
+
+    /**
+     * Has the connected computer's bridge enter Moonlight's pairing [pin] into Sunshine.
+     * False if no computer is connected (the result arrives in [notices]).
+     */
+    fun sunshinePin(pin: String, phoneName: String): Boolean {
+        if (_connection.value !is HostConnection.Connected) return false
+        send(msg("sunshine_pin", "pin" to pin, "name" to phoneName))
+        return true
+    }
+
     /** Each computer as it gets paired (typed PIN or scanned code). */
     val paired: SharedFlow<SavedHost> = _paired.asSharedFlow()
 
@@ -242,6 +257,12 @@ class HostManager(context: Context) {
                         .setPrimaryClip(ClipData.newPlainText("From computer", text))
                 }
             }
+            return
+        }
+        if (m.optString("t") == "sunshine_result") {
+            val host = (_connection.value as? HostConnection.Connected)?.host?.name ?: "the computer"
+            val problem = m.optString("msg")
+            _notices.tryEmit(if (problem.isEmpty()) "Moonlight is paired with $host" else "Moonlight pairing: $problem")
             return
         }
         if (m.optString("t") == "pong") {

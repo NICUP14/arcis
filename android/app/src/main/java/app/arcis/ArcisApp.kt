@@ -1,5 +1,6 @@
 package app.arcis
 
+import app.arcis.glasses.phoneName
 import android.app.Application
 import android.util.Log
 import app.arcis.apps.AppPrefs
@@ -139,8 +140,26 @@ class ArcisApp : Application() {
         }
     }
 
+    /**
+     * Moonlight shows a pairing PIN: have the connected computer's bridge enter it into
+     * Sunshine, so nothing has to be typed on the computer.
+     */
+    fun onMoonlightPin(pin: String) {
+        val overlay = ArcisAccessibilityService.instance?.uiOverlay
+        val connected = hosts.connection.value as? HostConnection.Connected
+        if (connected != null && hosts.sunshinePin(pin, phoneName(this))) {
+            Log.i("ArcisHost", "Moonlight pairing PIN sent to ${connected.host.name}")
+            overlay?.flash("Pairing Moonlight with ${connected.host.name}…")
+        } else {
+            overlay?.flash("Moonlight PIN $pin: enter it in Sunshine, or open the computer from Arcis Home first", PROBLEM_FLASH_MS)
+        }
+    }
+
     /** Says so on the glasses when a computer can't be reached or drops, e.g. over Moonlight. */
     private fun watchHostProblems() {
+        scope.launch {
+            hosts.notices.collect { ArcisAccessibilityService.instance?.uiOverlay?.flash(it, PROBLEM_FLASH_MS) }
+        }
         scope.launch {
             hosts.connection.collect { c ->
                 if (c is HostConnection.Failed) {
