@@ -11,7 +11,7 @@ It is a single standalone file per system — no installer, no runtime.
 
 | System | Build | Notes |
 |---|---|---|
-| Windows | `GOOS=windows GOARCH=amd64 go build -o arcis-bridge.exe ./cmd/arcis-bridge` | Allow it through the firewall when Windows asks (private networks). Run as administrator only if you need to control elevated windows (UAC prompts, admin apps). |
+| Windows | `GOOS=windows GOARCH=amd64 go build -ldflags -H=windowsgui -o arcis-bridge.exe ./cmd/arcis-bridge` | Allow it through the firewall when Windows asks (private networks). Run as administrator only if you need to control elevated windows (UAC prompts, admin apps). |
 | Linux (**untested**) | `GOOS=linux GOARCH=amd64 go build -o arcis-bridge ./cmd/arcis-bridge` | Needs write access to `/dev/uinput`, see below. Works on X11 and Wayland. |
 | macOS (**untested**) | `GOOS=darwin GOARCH=arm64 go build -o arcis-bridge ./cmd/arcis-bridge` | Grant **Accessibility** to the terminal / binary in System Settings › Privacy & Security. |
 
@@ -19,7 +19,17 @@ All builds work with `CGO_ENABLED=0`. Only the Windows bridge has been tested; t
 and macOS bridges build but have never been run on a real machine, so expect rough edges.
 
 Start it and open **http://127.0.0.1:41991** on that computer: it shows the
-pairing PIN, its addresses and the paired phones. Options:
+pairing PIN, its addresses and the paired phones.
+
+**On Windows** the bridge has no console window; it lives in the notification area
+(by the clock; Windows 11 may first put it under **^**, drag it out to keep it visible).
+The icon is grey while waiting and green while a phone is connected. Its menu:
+*Pair a phone…*, *Status page*, *Open log*, *Start with Windows* (on by default) and
+*Quit*. Starting it a second time just opens the status page. The first run opens the
+pairing page by itself. The log is `bridge.log` in the config directory
+(`%AppData%\arcis-bridge`). On Linux and macOS it keeps running in the terminal.
+
+Options:
 
 ```
 arcis-bridge -port 41990 -status-port 41991 -no-mdns -config <dir>

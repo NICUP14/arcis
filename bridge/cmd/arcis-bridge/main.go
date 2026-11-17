@@ -24,6 +24,7 @@ import (
 	"github.com/NICUP14/arcis/bridge/internal/proto"
 	"github.com/NICUP14/arcis/bridge/internal/server"
 	"github.com/NICUP14/arcis/bridge/internal/status"
+	"github.com/NICUP14/arcis/bridge/internal/tray"
 	"github.com/NICUP14/arcis/bridge/internal/wake"
 )
 
@@ -46,16 +47,31 @@ func main() {
 		return
 	}
 
-	logger := log.New(os.Stdout, "", log.LstdFlags)
+	statusURL := fmt.Sprintf("http://127.0.0.1:%d/", *statusPort)
+	pairURL := statusURL
+	if tray.AlreadyRunning() {
+		// Started again (Start Menu, sign-in, double-click): just show the running one.
+		tray.OpenURL(statusURL)
+		return
+	}
+
+	logFile := openLog(*configDir)
+	logger := log.New(logWriter{logFile}, "", log.LstdFlags)
+	fatal := func(format string, args ...any) {
+		msg := fmt.Sprintf(format, args...)
+		logger.Print(msg)
+		tray.Alert("Arcis Bridge", msg)
+		os.Exit(1)
+	}
 	host, _ := os.Hostname()
 
 	cert, err := certs.LoadOrCreate(*configDir)
 	if err != nil {
-		logger.Fatalf("certificate: %v", err)
+		fatal("certificate: %v", err)
 	}
 	store, err := pairing.Open(*configDir)
 	if err != nil {
-		logger.Fatalf("paired phones: %v", err)
+		fatal("paired phones: %v", err)
 	}
 	inj, inputErr := input.New()
 	if inputErr != nil {
@@ -84,7 +100,7 @@ func main() {
 	}
 	ln, err := net.Listen("tcp", net.JoinHostPort(*bind, fmt.Sprint(*port)))
 	if err != nil {
-		logger.Fatalf("listen on port %d: %v", *port, err)
+		fatal("Can't listen on port %d (is another Arcis Bridge already running?): %v", *port, err)
 	}
 	fp := certs.Fingerprint(cert)
 
@@ -125,15 +141,77 @@ func main() {
 	logger.Printf("Pairing PIN: %s   (status page: http://127.0.0.1:%d)", store.PIN(), *statusPort)
 	logger.Printf("Addresses: %v", status.LocalAddresses())
 
+	// Start with Windows unless the user turned it off (re-written each start so it
+	// follows the exe if it moved); show the pairing page on the very first run.
+	settings := tray.LoadSettings(*configDir)
+	if settings.AutostartWanted() {
+		if err := tray.ApplyAutostart(true); err != nil {
+			logger.Printf("start with Windows: %v", err)
+		}
+	}
+	if !settings.Welcomed {
+		settings.Welcomed = true
+		_ = tray.SaveSettings(*configDir, settings)
+		if *statusPort != 0 && len(store.Devices()) == 0 {
+			tray.OpenURL(pairURL)
+		}
+	}
+
 	go func() {
 		sig := make(chan os.Signal, 1)
 		signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
 		<-sig
-		ln.Close()
+		tray.Quit()
 	}()
-	if err := srv.Serve(ln); err != nil {
-		logger.Fatal(err)
+	go func() {
+		if err := srv.Serve(ln); err != nil {
+			logger.Printf("stopped: %v", err)
+			tray.Alert("Arcis Bridge", "The bridge stopped: "+err.Error())
+		}
+		tray.Quit()
+	}()
+	trayOpts := tray.Options{
+		Status:    func() (bool, string) { return srv.Connected() > 0, srv.LastPhone() },
+		ConfigDir: *configDir,
+		OnQuit:    func() { logger.Print("quit from the tray") },
 	}
+	if *statusPort != 0 {
+		trayOpts.StatusURL, trayOpts.PairURL = statusURL, pairURL
+	}
+	if logFile != nil {
+		trayOpts.LogFile = logFile.Name()
+	}
+	tray.Run(trayOpts) // blocks until Quit (menu, signal, or the server stopping)
+	ln.Close()
+}
+
+// openLog opens <config>/bridge.log for appending, keeping one older copy once it
+// passes about 1 MB. nil if it can't be opened (then only stdout is used).
+func openLog(dir string) *os.File {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return nil
+	}
+	path := filepath.Join(dir, "bridge.log")
+	if fi, err := os.Stat(path); err == nil && fi.Size() > 1<<20 {
+		_ = os.Rename(path, path+".1")
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
+	if err != nil {
+		return nil
+	}
+	return f
+}
+
+// logWriter writes to the log file and to stdout, ignoring a missing stdout (the
+// Windows build has no console).
+type logWriter struct{ f *os.File }
+
+func (w logWriter) Write(p []byte) (int, error) {
+	if w.f != nil {
+		_, _ = w.f.Write(p)
+	}
+	_, _ = os.Stdout.Write(p)
+	return len(p), nil
 }
 
 // clipboard adapts the clip package to server.Clipboard.
