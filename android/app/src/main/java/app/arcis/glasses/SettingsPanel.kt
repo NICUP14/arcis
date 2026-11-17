@@ -1,5 +1,10 @@
 package app.arcis.glasses
 
+import android.app.ActivityOptions
+import android.content.Intent
+import android.view.Display
+import androidx.compose.ui.platform.LocalContext
+import app.arcis.MainActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.rememberScrollState
@@ -56,6 +61,7 @@ private val DictationLanguages: List<Pair<String?, String>> = listOf(
 @Composable
 fun SettingsPanel(onDone: () -> Unit) {
     val prefs = ArcisApp.instance.controllerPrefs
+    val context = LocalContext.current
     val pointer by prefs.pointerSpeed.collectAsState()
     val scroll by prefs.scrollSpeed.collectAsState()
     val language by prefs.dictationLanguage.collectAsState()
@@ -84,6 +90,15 @@ fun SettingsPanel(onDone: () -> Unit) {
                     prefs.setPointerSpeed(ControllerPrefs.DEFAULT_POINTER_SPEED)
                     prefs.setScrollSpeed(ControllerPrefs.DEFAULT_POINTER_SPEED)
                     prefs.setDictationLanguage(null)
+                }
+                // The checklist lives on the phone (permission screens open there).
+                Button("Phone setup", enabled = true) {
+                    context.startActivity(
+                        Intent(context, MainActivity::class.java)
+                            .setAction(MainActivity.ACTION_PHONE_SETUP)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                        ActivityOptions.makeBasic().setLaunchDisplayId(Display.DEFAULT_DISPLAY).toBundle(),
+                    )
                 }
             }
         }

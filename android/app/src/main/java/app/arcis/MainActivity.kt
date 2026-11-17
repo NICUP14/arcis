@@ -44,6 +44,14 @@ import app.arcis.controller.ControllerPrefs
 import app.arcis.controller.ControllerScreen
 import app.arcis.glasses.GlassesLauncher
 import app.arcis.input.InputRouter
+import app.arcis.core.setup.SetupItem
+import app.arcis.host.HostTarget
+import app.arcis.host.PairScanActivity
+import app.arcis.setup.PhoneSetup
+import app.arcis.setup.PhoneSetupScreen
+import android.net.Uri
+import android.util.Log
+import androidx.compose.runtime.mutableIntStateOf
 import kotlinx.coroutines.launch
 
 /** Phone-side controller: setup/status screens, or the trackpad when everything is ready. */
@@ -52,9 +60,18 @@ class MainActivity : ComponentActivity() {
     private val displays get() = ArcisApp.instance.displays
     private lateinit var router: InputRouter
     private lateinit var controllerPrefs: ControllerPrefs
-    private val micPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
-    private val bluetoothPermission =
-        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { ArcisApp.instance.hid.start() }
+    private val micPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { setupTick++ }
+    private val bluetoothPermission = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+        ArcisApp.instance.hid.start()
+        setupTick++
+    }
+
+    /** Bumped whenever setup items may have changed (back from Settings, permission answers). */
+    private var setupTick by mutableIntStateOf(0)
+
+    /** The phone setup checklist is showing (first run until done, or asked from Settings). */
+    private var setupOpen by mutableStateOf(false)
+    private val setupPrefs by lazy { getSharedPreferences("setup", MODE_PRIVATE) }
     private val bluetoothSystemPrompt =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { ArcisApp.instance.hid.start() }
 
@@ -77,16 +94,20 @@ class MainActivity : ComponentActivity() {
             hide(WindowInsetsCompat.Type.systemBars())
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         }
+        setupOpen = !setupPrefs.getBoolean(KEY_SETUP_DONE, false)
         setContent {
             val screen by displays.screen.collectAsState()
             val a11y by ArcisAccessibilityService.connected.collectAsState()
+            val pairedHosts by ArcisApp.instance.hosts.store.hosts.collectAsState()
+            val checklist = remember(setupTick, a11y, pairedHosts) { PhoneSetup.check(this) }
+            val showSetup = setupOpen || !a11y
             val mode by controllerPrefs.mode.collectAsState()
             val remoteTarget by ArcisApp.instance.remoteTyping.collectAsState()
             val keyboardOnPhone by ArcisAccessibilityService.keyboardOnPhone.collectAsState()
             var relayRequested by remember { mutableStateOf(false) }
             LaunchedEffect(remoteTarget) { if (remoteTarget == null) relayRequested = false }
             val relayOpen = relayRequested && remoteTarget != null
-            val trackpad = screen != null && a11y
+            val trackpad = screen != null && a11y && !showSetup
             // Typing for a computer / Bluetooth device needs this window to take the keyboard.
             // Focusable as soon as such a device is in front: the tap on the keyboard button
             // then moves input focus from the glasses to the phone, so the keyboard can open.
@@ -94,8 +115,16 @@ class MainActivity : ComponentActivity() {
             LaunchedEffect(trackpad, mode, focusable) { setControllerWindow(trackpad, mode, focusable) }
             LaunchedEffect(trackpad) { if (trackpad) askForMicrophone() }
             when {
+                showSetup -> PhoneSetupScreen(
+                    checklist = checklist,
+                    onAction = ::fixSetupItem,
+                    onDone = {
+                        setupPrefs.edit().putBoolean(KEY_SETUP_DONE, true).apply()
+                        setupOpen = false
+                    },
+                    onLater = { setupOpen = false },
+                )
                 screen == null -> Message("Connect your glasses or an external screen over USB-C")
-                !a11y -> AccessibilitySetup { openAccessibilitySettings() }
                 else -> ControllerScreen(
                     mode = mode,
                     remoteTarget = remoteTarget,
@@ -139,6 +168,10 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleIntent(intent: Intent?) {
+        if (intent?.action == ACTION_PHONE_SETUP) {
+            setupOpen = true
+            return
+        }
         if (intent?.action != ACTION_BLUETOOTH_SETUP) return
         when (intent.getStringExtra(EXTRA_STEP)) {
             STEP_PERMISSION -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -157,6 +190,39 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         displays.refresh()
+        setupTick++ // re-check the setup items (e.g. back from a Settings screen)
+    }
+
+    /** Opens the exact place that fixes [item]. */
+    private fun fixSetupItem(item: SetupItem) {
+        runCatching {
+            when (item) {
+                SetupItem.ACCESSIBILITY -> openAccessibilitySettings()
+                SetupItem.MOONLIGHT -> {
+                    val market = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$MOONLIGHT_PACKAGE"))
+                    if (market.resolveActivity(packageManager) != null) {
+                        startActivity(market)
+                    } else {
+                        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=$MOONLIGHT_PACKAGE")))
+                    }
+                }
+                SetupItem.BRIDGE -> PairScanActivity.start(this)
+                SetupItem.NOTIFICATIONS -> startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                SetupItem.MICROPHONE -> micPermission.launch(Manifest.permission.RECORD_AUDIO)
+                SetupItem.BLUETOOTH -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    bluetoothPermission.launch(
+                        arrayOf(Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_ADVERTISE),
+                    )
+                }
+                SetupItem.BATTERY -> startActivity(
+                    Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName")),
+                )
+                SetupItem.MOONLIGHT_PIP -> ArcisApp.instance.phoneApps.list()
+                    .firstOrNull { HostTarget.isMoonlight(it.packageName) }
+                    ?.let { packageManager.getLaunchIntentForPackage(it.packageName) }
+                    ?.let(::startActivity)
+            }
+        }.onFailure { Log.w("ArcisSetup", "can't open the setting for $item", it) }
     }
 
     /**
@@ -186,6 +252,11 @@ class MainActivity : ComponentActivity() {
     companion object {
         /** Asked by the glasses' Bluetooth screen: show a Bluetooth system prompt on the phone. */
         const val ACTION_BLUETOOTH_SETUP = "app.arcis.BLUETOOTH_SETUP"
+
+        /** Opens the phone setup checklist (from Settings on the glasses). */
+        const val ACTION_PHONE_SETUP = "app.arcis.PHONE_SETUP"
+        private const val KEY_SETUP_DONE = "done"
+        private const val MOONLIGHT_PACKAGE = "com.limelight"
         const val EXTRA_STEP = "step"
         const val STEP_PERMISSION = "permission"
         const val STEP_ENABLE = "enable"
@@ -218,23 +289,3 @@ private fun Message(text: String) {
     }
 }
 
-@Composable
-private fun AccessibilitySetup(onOpenSettings: () -> Unit) {
-    Box(
-        modifier = Modifier.fillMaxSize().background(Color.Black).padding(32.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("One-time setup", color = Color.White, fontSize = 22.sp)
-            Text(
-                "Turn on \"Arcis controller\" in Accessibility so your phone can control apps on the " +
-                    "external screen.\n\nIf Android says the setting is restricted: open App info for " +
-                    "Arcis, tap ⋮ → \"Allow restricted settings\", then try again.",
-                color = Color(0xFF8A90A0),
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(vertical = 16.dp),
-            )
-            Button(onClick = onOpenSettings) { Text("Open Accessibility settings") }
-        }
-    }
-}
