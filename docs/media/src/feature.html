@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<!--
+  A glasses screenshot in a glass frame, for the README feature grid. Rendered by ../render.ps1.
+  Query: w,h=<image size, px>  shot=<file in ../shots, no .png>  x,y=<top-left of the crop, in screenshot pixels>
+         zoom=<1 = screenshot width fits the frame>  pad=<space around the frame, px>
+-->
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="style.css">
+<style>
+  .glass { background: #000; }  /* the glasses show black as see-through */
+  .glass img { position: absolute; width: auto; height: auto; max-width: none; object-fit: unset; }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="glass" id="frame"><img id="shot" alt=""></div>
+</div>
+<script>
+  const q = new URLSearchParams(location.search);
+  const num = (k, d) => (q.has(k) ? parseFloat(q.get(k)) : d);
+  const pad = num("pad", 28), x = num("x", 0), y = num("y", 0), zoom = num("zoom", 1);
+  // Size comes from render.ps1: headless Edge reports a smaller viewport than the screenshot it writes.
+  const W = num("w", innerWidth), H = num("h", innerHeight);
+  const frame = document.getElementById("frame");
+  Object.assign(frame.style, { left: pad + "px", top: pad + "px", width: W - 2 * pad + "px", height: H - 2 * pad + "px" });
+  const img = document.getElementById("shot");
+  img.onload = () => {
+    const s = ((W - 2 * pad) / img.naturalWidth) * zoom;
+    Object.assign(img.style, {
+      width: img.naturalWidth * s + "px",
+      left: -x * s + "px",
+      top: -y * s + "px",
+    });
+  };
+  img.src = "../shots/" + (q.get("shot") || "glasses-home") + ".png";
+</script>
+</body>
+</html>

@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<!-- README hero, 1600x800. Rendered by ../render.ps1 -->
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="style.css">
+<style>
+  .copy { position: absolute; left: 80px; top: 210px; width: 470px; }
+  .brand { display: flex; align-items: center; gap: 18px; margin-bottom: 44px; }
+  .brand .name { font-size: 44px; font-weight: 600; letter-spacing: -0.01em; }
+  h1 { font-size: 54px; line-height: 1.08; margin-bottom: 24px; }
+  .copy .subtitle { font-size: 23px; margin-bottom: 36px; }
+
+  .lens { left: 580px; top: 130px; width: 840px; height: 472px; }
+  .lens-label {
+    position: absolute; left: 580px; top: 630px; width: 700px;
+    text-align: center; font-size: 18px; color: var(--text-3); letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .phone { left: 1310px; top: 210px; width: 236px; height: 512px; transform: rotate(4deg); }
+  .phone-label {
+    position: absolute; left: 1310px; top: 740px; width: 236px;
+    text-align: center; font-size: 18px; color: var(--text-3); letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  svg.link { position: absolute; inset: 0; pointer-events: none; }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="copy">
+    <h1 class="title">Your phone is the <span class="accent">remote</span> for your AR glasses.</h1>
+    <p class="subtitle">Phone apps and your Windows PC on the big screen, controlled without looking down.</p>
+    <div class="chips">
+      <span class="chip on">Free</span>
+      <span class="chip">Open source</span>
+      <span class="chip">No root</span>
+    </div>
+  </div>
+
+  <div class="glass lens"><img src="../shots/glasses-home.png" alt=""></div>
+  <div class="lens-label">In your glasses</div>
+
+
+  <div class="phone">
+    <div class="screen">
+      <img src="../shots/phone-trackpad.png" alt="">
+      <div class="trail" style="left: 30px; top: 250px; width: 84px; transform: rotate(-30deg);"></div>
+      <div class="touch" style="left: 92px; top: 206px;"></div>
+    </div>
+  </div>
+  <svg class="link" width="1600" height="800" viewBox="0 0 1600 800">
+    <defs>
+      <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur stdDeviation="5" result="b"/>
+        <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+    </defs>
+    <!-- From the finger on the phone to the pointer in the glasses -->
+    <path d="M 1440 452 Q 1270 190 1022 362" fill="none" stroke="#6EA8FF" stroke-width="3"
+          stroke-dasharray="2 10" stroke-linecap="round" filter="url(#glow)" opacity="0.95"/>
+    <circle cx="1006" cy="372" r="20" fill="none" stroke="#6EA8FF" stroke-width="2.5" opacity="0.8" filter="url(#glow)"/>
+  </svg>
+  <div class="phone-label">On your phone</div>
+</div>
+</body>
+</html>

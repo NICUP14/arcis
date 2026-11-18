@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<!-- GitHub social preview, 1280x640. Upload in Settings > General > Social preview. Rendered by ../render.ps1 -->
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="style.css">
+<style>
+  .copy { position: absolute; left: 88px; top: 112px; width: 560px; z-index: 2; }
+  .brand { display: flex; align-items: center; gap: 24px; margin-bottom: 30px; }
+  .brand .name { font-size: 92px; line-height: 1; }
+  .copy .subtitle { font-size: 31px; margin-bottom: 40px; }
+  .scene { position: absolute; inset: 0; perspective: 1400px; }
+  .lens {
+    left: 650px; top: 130px; width: 760px; height: 428px;
+    transform: rotateY(-22deg) rotateX(4deg);
+    transform-origin: left center;
+  }
+  .lens-back {
+    left: 720px; top: 80px; width: 640px; height: 360px; opacity: 0.35;
+    transform: rotateY(-22deg) rotateX(4deg) translateZ(-260px);
+    transform-origin: left center;
+  }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="scene">
+    <div class="glass lens-back"><img src="../shots/settings.png" alt=""></div>
+    <div class="glass lens"><img src="../shots/glasses-home.png" alt=""></div>
+  </div>
+  <div class="copy">
+    <div class="brand">
+      <img class="logo" src="../../assets/logo.svg" width="96" height="96" alt="">
+      <span class="title name">Arcis</span>
+    </div>
+    <p class="subtitle">Your phone as the <span class="accent">remote</span><br>for your AR glasses.</p>
+    <div class="chips">
+      <span class="chip on">Free</span>
+      <span class="chip">Open source</span>
+      <span class="chip">MIT</span>
+      <span class="chip">No root</span>
+    </div>
+  </div>
+</div>
+</body>
+</html>
