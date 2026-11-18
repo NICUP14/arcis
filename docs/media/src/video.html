@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<!--
+  Concept video, 1920x1080. A scene drawn by render(t) for any time t (seconds), so
+  ../render-video.mjs can capture it frame by frame. Open with ?play to preview in a browser.
+  The glasses UI uses real screenshots of the app (../shots); the PC desktop, the video
+  player and the chat icon are simple illustrations.
+-->
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="style.css">
+<style>
+  body { width: 1920px; height: 1080px; }
+  .stage { width: 1920px; height: 1080px; }
+  .abs { position: absolute; }
+
+  /* Captions */
+  .cap { position: absolute; left: 140px; top: 70px; width: 1500px; font-size: 52px; opacity: 0; }
+  .cap small { display: block; font-size: 28px; margin-top: 10px; color: var(--text-2); font-weight: 400; letter-spacing: 0; }
+
+  /* The glasses */
+  #lens { left: 140px; top: 190px; width: 1280px; height: 720px; }
+  #lens > .layer { position: absolute; inset: 0; opacity: 0; }
+  .lens-label {
+    position: absolute; left: 140px; top: 936px; width: 1280px; text-align: center;
+    font-size: 20px; color: var(--text-3); letter-spacing: 0.08em; text-transform: uppercase;
+  }
+
+  /* The phone */
+  #phone { left: 1530px; top: 250px; width: 300px; height: 640px; transform: rotate(4deg); }
+  .phone-label {
+    position: absolute; left: 1530px; top: 925px; width: 300px; text-align: center;
+    font-size: 20px; color: var(--text-3); letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  #phone .screen svg { position: absolute; inset: 0; }
+  .ring { position: absolute; border-radius: 50%; border: 3px solid var(--blue); opacity: 0; }
+
+  /* Pointer in the glasses (Arcis cursor) */
+  #cursor { position: absolute; width: 30px; height: 40px; opacity: 0; filter: drop-shadow(0 2px 3px rgba(0,0,0,.6)); }
+  #click { width: 60px; height: 60px; }
+
+  /* PC desktop (illustration) */
+  #desktop {
+    background:
+      radial-gradient(60% 80% at 80% 20%, rgba(124, 92, 255, 0.55), transparent 60%),
+      radial-gradient(70% 90% at 10% 90%, rgba(40, 140, 255, 0.55), transparent 60%),
+      linear-gradient(140deg, #13203d, #2a1a45);
+  }
+  .taskbar {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 52px;
+    background: rgba(12, 16, 26, 0.72); display: flex; justify-content: center; align-items: center; gap: 14px;
+  }
+  .taskbar i { width: 32px; height: 32px; border-radius: 8px; background: rgba(255,255,255,0.18); display: block; }
+  .taskbar i.on { background: var(--blue); }
+  .win {
+    position: absolute; left: 150px; top: 70px; width: 980px; height: 520px; border-radius: 14px; overflow: hidden;
+    background: #f4f5f8; box-shadow: 0 24px 60px rgba(0,0,0,.45);
+  }
+  .win .bar { height: 44px; background: #e3e6ec; display: flex; align-items: center; padding: 0 18px; color: #3a4150; font-size: 18px; }
+  .win .bar .dots { margin-left: auto; display: flex; gap: 22px; color: #6b7280; font-size: 18px; }
+  .doc { padding: 34px 40px; color: #1d2330; font-size: 32px; line-height: 1.45; font-family: "Segoe UI", sans-serif; }
+  .doc h3 { font-size: 36px; margin-bottom: 14px; color: #111; }
+  #typed .sel { background: rgba(110, 168, 255, 0.45); border-radius: 4px; }
+  .caret { display: inline-block; width: 3px; height: 36px; background: #1d2330; vertical-align: -6px; margin-left: 2px; }
+
+  /* Dictation strip (as in the app) */
+  #dictation {
+    position: absolute; left: 50%; bottom: 80px; transform: translateX(-50%); opacity: 0;
+    display: flex; align-items: center; gap: 14px; padding: 14px 26px; border-radius: 26px;
+    background: rgba(16, 18, 26, 0.94); border: 1.5px solid var(--blue); color: var(--text); font-size: 24px; white-space: nowrap;
+  }
+  #dictation b { width: 13px; height: 13px; border-radius: 50%; background: #FF5A5A; display: block; }
+
+  /* Video (illustration) */
+  #video { background: linear-gradient(180deg, #ffb46b 0%, #ff7a59 38%, #6b3b6e 70%, #1b1530 100%); }
+  .sun { position: absolute; left: 790px; top: 230px; width: 170px; height: 170px; border-radius: 50%; background: #ffe2a6; box-shadow: 0 0 90px #ffcf7a; }
+  .mnt { position: absolute; left: 0; right: 0; bottom: 0; }
+  .m1 { height: 360px; background: #3b2550; clip-path: polygon(0 60%, 18% 20%, 34% 55%, 52% 10%, 70% 50%, 86% 25%, 100% 55%, 100% 100%, 0 100%); }
+  .m2 { height: 240px; background: #1d1430; clip-path: polygon(0 45%, 22% 15%, 40% 50%, 62% 20%, 80% 60%, 100% 30%, 100% 100%, 0 100%); }
+  .controls { position: absolute; left: 40px; right: 40px; bottom: 30px; color: rgba(255,255,255,.85); font-size: 20px; }
+  .track { height: 6px; border-radius: 3px; background: rgba(255,255,255,0.3); margin-bottom: 12px; position: relative; }
+  #played { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: #fff; }
+  #knob { position: absolute; top: -6px; width: 18px; height: 18px; border-radius: 50%; background: #fff; margin-left: -9px; }
+
+  /* Center flash (as in the app) */
+  #flash {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); opacity: 0;
+    padding: 16px 34px; border-radius: 22px; background: rgba(16, 18, 26, 0.9); color: var(--text); font-size: 34px; white-space: nowrap;
+  }
+
+  /* Message banner (as in the app) */
+  #banner {
+    position: absolute; left: 50%; top: 40px; transform: translateX(-50%); opacity: 0; width: 600px;
+    display: flex; align-items: center; gap: 18px; padding: 16px 22px; border-radius: 20px;
+    background: rgba(22, 25, 34, 0.96); border: 1.5px solid rgba(255,255,255,0.12);
+  }
+  #banner .ic { width: 52px; height: 52px; border-radius: 14px; background: #2fbf71; display: flex; align-items: center; justify-content: center; }
+  #banner .who { font-size: 24px; color: var(--text); }
+  #banner .who span { font-size: 17px; color: var(--text-3); margin-left: 10px; }
+  #banner .msg { font-size: 21px; color: var(--text-2); }
+  #banner .hint { font-size: 14px; color: var(--text-3); margin-top: 2px; }
+
+  /* Media chip on the phone (left-handed layout: chip bottom right) */
+  #chip {
+    position: absolute; right: 16px; bottom: 74px; opacity: 0; padding: 8px 14px; border-radius: 999px;
+    border: 1.5px solid var(--blue); background: rgba(22, 50, 79, 0.9); color: #fff; font-size: 15px;
+  }
+
+  /* End card */
+  #end { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0; }
+  #end .name { font-size: 96px; font-weight: 600; margin: 26px 0 10px; letter-spacing: -0.02em; }
+  #end .tag { font-size: 40px; color: var(--text-2); margin-bottom: 40px; }
+  #end .url { font-size: 34px; color: var(--blue); margin-top: 26px; }
+
+  .note { position: absolute; left: 30px; bottom: 22px; font-size: 18px; color: var(--text-3); }
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+
+  <div class="cap title" id="c1">Your phone is the <span class="accent">remote</span> for your AR glasses.</div>
+  <div class="cap title" id="c2">Your PC, from the couch.<small>Hold the mic and talk: it types.</small></div>
+  <div class="cap title" id="c3">Draw a letter for a shortcut.<small>C copies, V pastes, Z undoes.</small></div>
+  <div class="cap title" id="c4">Videos without aiming.<small>Tap to pause, swipe to skip.</small></div>
+  <div class="cap title" id="c5">Messages, without leaving the movie.</div>
+
+  <div id="scene">
+    <div class="glass abs" id="lens">
+      <div class="layer" id="home">
+        <img src="../shots/glasses-home.png" alt="">
+        <!-- The screenshot has the app's cursor in it; hide it, the animated one starts there. -->
+        <div style="position:absolute;left:634px;top:358px;width:32px;height:36px;background:#000"></div>
+      </div>
+
+      <div class="layer" id="desktop">
+        <div class="win">
+          <div class="bar">Trip plan · Notes<span class="dots"><span>–</span><span>□</span><span>✕</span></span></div>
+          <div class="doc"><h3>Trip plan</h3><span id="typed"></span><span class="caret" id="caret"></span></div>
+        </div>
+        <div class="taskbar"><i></i><i class="on"></i><i></i><i></i><i></i><i></i></div>
+        <div id="dictation"><b></b><span id="spoken">Listening…</span></div>
+        <div id="copied" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);opacity:0;padding:16px 34px;border-radius:22px;background:rgba(16,18,26,.9);font-size:34px;color:var(--text)">Copied</div>
+      </div>
+
+      <div class="layer" id="video">
+        <div class="sun"></div>
+        <div class="mnt m1"></div>
+        <div class="mnt m2"></div>
+        <div class="controls">
+          <div class="track"><div id="played"></div><div id="knob"></div></div>
+          <span id="time">12:04 / 48:30</span>
+        </div>
+        <div id="flash"></div>
+        <div id="banner">
+          <div class="ic">
+            <svg width="30" height="30" viewBox="0 0 24 24"><path fill="#fff" d="M4 4h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9l-5 4v-4H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/></svg>
+          </div>
+          <div>
+            <div class="who">Alex<span>Messages</span></div>
+            <div class="msg">Movie night at 8? Bring snacks 🍿</div>
+            <div class="hint">Two-finger tap: open · swipe up: dismiss</div>
+          </div>
+        </div>
+      </div>
+
+      <svg id="cursor" viewBox="0 0 30 40"><path d="M2 2 L2 32 L10 25 L16 38 L21 36 L15 23 L26 23 Z" fill="#fff" stroke="#000" stroke-width="1.5" stroke-linejoin="round"/></svg>
+      <div class="ring" id="click"></div>
+    </div>
+    <div class="lens-label">In your glasses</div>
+
+    <div class="phone" id="phone">
+      <div class="screen" id="pscreen">
+        <img src="../shots/phone-trackpad.png" alt="">
+        <svg viewBox="0 0 276 616" width="276" height="616">
+          <path id="cpath" d="" fill="none" stroke="#6EA8FF" stroke-width="7" stroke-linecap="round" opacity="0"/>
+          <path id="trail" d="" fill="none" stroke="#6EA8FF" stroke-width="6" stroke-linecap="round" opacity="0"/>
+        </svg>
+        <div class="ring" id="pring"></div>
+        <div class="touch" id="touch" style="opacity:0"></div>
+        <div id="chip">▶ Media</div>
+      </div>
+    </div>
+    <div class="phone-label">On your phone</div>
+  </div>
+
+  <div id="end">
+    <svg width="200" height="200" viewBox="0 0 256 256" class="logo">
+      <rect width="256" height="256" rx="56" fill="#0D0F14"/>
+      <circle cx="128" cy="128" r="72" fill="none" stroke="#4CD98A" stroke-width="32"/>
+      <circle cx="128" cy="128" r="38" fill="#4CD98A"/>
+    </svg>
+    <div class="name">Arcis</div>
+    <div class="tag">Your phone is the remote for your AR glasses.</div>
+    <div class="chips"><span class="chip on">Free</span><span class="chip">Open source</span><span class="chip">No root</span></div>
+    <div class="url">github.com/NICUP14/arcis</div>
+  </div>
+
+  <div class="note">Illustration · glasses UI from the real app</div>
+</div>
+
+<script>
+const DURATION = 17.5;
+const $ = (id) => document.getElementById(id);
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const lerp = (a, b, u) => a + (b - a) * u;
+const ease = (u) => (u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2);
+const seg = (t, a, b) => clamp((t - a) / (b - a));
+/** 0 → 1 between a and b, back to 0 between c and d. */
+const win = (t, a, b, c, d) => Math.min(seg(t, a, b), 1 - seg(t, c, d));
+const show = (el, o, extra = '') => { el.style.opacity = o; if (extra) el.style.transform = extra; };
+
+const TEXT = 'Book the train for Friday and pack the glasses.';
+const SPOKEN = TEXT.split(' ');
+
+// Phone screen: 276 x 616 (the trackpad shot is the left-handed layout: mic bottom left).
+const MIC = { x: 64, y: 512 };
+const C = { x: 150, y: 290, r: 72 };
+
+function touchAt(t, x, y, o) {
+  const el = $('touch');
+  el.style.left = (x - 27) + 'px';
+  el.style.top = (y - 27) + 'px';
+  el.style.opacity = o;
+}
+function ring(el, x, y, u, size) {
+  const s = lerp(0.4, 1.6, u);
+  el.style.width = el.style.height = size + 'px';
+  el.style.left = (x - size / 2) + 'px';
+  el.style.top = (y - size / 2) + 'px';
+  el.style.transform = `scale(${s})`;
+  el.style.opacity = u > 0 && u < 1 ? 1 - u : 0;
+}
+
+function render(t) {
+  // Captions
+  show($('c1'), win(t, 0.2, 0.7, 2.9, 3.3));
+  show($('c2'), win(t, 3.4, 3.9, 7.2, 7.6));
+  show($('c3'), win(t, 7.7, 8.1, 9.9, 10.2));
+  show($('c4'), win(t, 10.3, 10.7, 13.3, 13.6));
+  show($('c5'), win(t, 13.7, 14.1, 15.2, 15.5));
+
+  // Scene vs end card
+  const sceneO = 1 - seg(t, 15.4, 15.9);
+  $('scene').style.opacity = sceneO;
+  show($('end'), seg(t, 15.8, 16.4), `scale(${lerp(0.96, 1, ease(seg(t, 15.8, 16.6)))})`);
+
+  // Glasses layers
+  show($('home'), 1 - seg(t, 2.9, 3.3));
+  const toVideo = ease(seg(t, 10.0, 10.5));
+  $('desktop').style.opacity = seg(t, 2.9, 3.3);
+  $('desktop').style.transform = `translateX(${-toVideo * 100}%)`;
+  $('video').style.opacity = toVideo > 0 ? 1 : 0;
+  $('video').style.transform = `translateX(${(1 - toVideo) * 100}%)`;
+
+  // Pointer moves to the PC tile and clicks it
+  const mv = ease(seg(t, 0.7, 2.2));
+  const cx = lerp(640, 117, mv), cy = lerp(363, 220, mv);
+  const cur = $('cursor');
+  cur.style.left = cx + 'px';
+  cur.style.top = cy + 'px';
+  cur.style.opacity = 1 - seg(t, 2.9, 3.1);
+  ring($('click'), cx + 4, cy + 4, seg(t, 2.35, 2.85), 60);
+
+  // Phone finger
+  let tx = 0, ty = 0, to = 0;
+  if (t < 3.0) {
+    const u = ease(seg(t, 0.7, 2.2));
+    tx = lerp(175, 95, u); ty = lerp(340, 262, u);
+    to = win(t, 0.5, 0.8, 2.7, 3.0);
+  } else if (t < 7.3) {
+    tx = MIC.x; ty = MIC.y; to = win(t, 3.5, 3.7, 6.9, 7.2);
+  } else if (t < 9.6) {
+    const u = ease(seg(t, 7.9, 9.0));
+    const a = (-45 - 270 * u) * Math.PI / 180;
+    tx = C.x + C.r * Math.cos(a); ty = C.y + C.r * Math.sin(a);
+    to = win(t, 7.8, 7.95, 9.1, 9.4);
+  } else if (t < 10.6) {
+    const u = ease(seg(t, 9.85, 10.4));
+    tx = lerp(240, 70, u); ty = 588; to = win(t, 9.7, 9.85, 10.4, 10.6);
+  } else if (t < 11.6) {
+    tx = 150; ty = 320; to = win(t, 10.8, 10.95, 11.2, 11.4);
+  } else if (t < 12.4) {
+    tx = 150; ty = 320; to = win(t, 11.9, 12.05, 12.2, 12.4);
+  } else {
+    const u = ease(seg(t, 12.5, 12.9));
+    tx = lerp(70, 230, u); ty = 330; to = win(t, 12.45, 12.55, 12.9, 13.1);
+  }
+  touchAt(t, tx, ty, to);
+  ring($('pring'), 95, 262, seg(t, 2.35, 2.85), 70);
+  if (t > 10.8 && t < 11.6) ring($('pring'), 150, 320, seg(t, 10.9, 11.4), 70);
+  if (t > 11.9 && t < 12.6) ring($('pring'), 150, 320, seg(t, 12.0, 12.5), 70);
+  // Mic held: a pulsing ring around the mic button
+  if (t > 3.6 && t < 7.0) {
+    const p = (t * 1.6) % 1;
+    ring($('pring'), MIC.x, MIC.y, p, 90);
+  }
+
+  // Drawn C on the phone
+  const cp = $('cpath');
+  const draw = seg(t, 7.9, 9.0);
+  if (draw > 0) {
+    const a0 = -45 * Math.PI / 180, a1 = (-45 - 270 * ease(draw)) * Math.PI / 180;
+    const pts = [];
+    for (let i = 0; i <= 40; i++) {
+      const a = lerp(a0, a1, i / 40);
+      pts.push(`${(C.x + C.r * Math.cos(a)).toFixed(1)},${(C.y + C.r * Math.sin(a)).toFixed(1)}`);
+    }
+    cp.setAttribute('d', 'M' + pts.join(' L'));
+  }
+  cp.setAttribute('opacity', draw > 0 ? 0.9 * (1 - seg(t, 9.2, 9.6)) : 0);
+
+  // Bottom-edge swipe trail, then the seek swipe trail
+  const tr = $('trail');
+  if (t > 9.8 && t < 10.7) {
+    tr.setAttribute('d', `M 240 588 L ${tx.toFixed(1)} 588`);
+    tr.setAttribute('opacity', 0.7 * win(t, 9.85, 9.95, 10.4, 10.7));
+  } else if (t > 12.45 && t < 13.2) {
+    tr.setAttribute('d', `M 70 330 L ${tx.toFixed(1)} 330`);
+    tr.setAttribute('opacity', 0.7 * win(t, 12.5, 12.6, 12.9, 13.2));
+  } else {
+    tr.setAttribute('opacity', 0);
+  }
+
+  // Dictation: strip, then the words land in the document
+  show($('dictation'), win(t, 3.7, 3.9, 6.8, 7.1));
+  const words = Math.floor(lerp(0, SPOKEN.length + 0.99, seg(t, 4.1, 6.3)));
+  $('spoken').textContent = words === 0 ? 'Listening…' : SPOKEN.slice(0, words).join(' ');
+  const typed = t < 6.8 ? '' : TEXT.slice(0, Math.round(TEXT.length * seg(t, 6.8, 7.3)));
+  const selected = t > 9.0;
+  $('typed').innerHTML = selected ? `<span class="sel">${typed}</span>` : typed;
+  $('caret').style.opacity = (t > 3.3 && !selected && Math.floor(t * 2) % 2 === 0) ? 1 : 0;
+  show($('copied'), win(t, 9.05, 9.2, 9.7, 9.95));
+
+  // Video: playing, paused by a tap, played again, swiped +10 s
+  let pos = 0.25;
+  if (t > 10.4) pos += Math.min(t, 11.0) - 10.4; // playing
+  if (t > 12.0) pos += t - 12.0;                // playing again
+  const seek = seg(t, 12.85, 12.95) * 10;
+  const frac = clamp((724 + pos + seek) / 2910);
+  $('played').style.width = (frac * 100) + '%';
+  $('knob').style.left = (frac * 100) + '%';
+  const sec = Math.floor(724 + pos + seek);
+  $('time').textContent = `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')} / 48:30`;
+  const fl = $('flash');
+  if (t > 10.95 && t < 11.8) { fl.textContent = '❚❚'; fl.style.opacity = win(t, 10.95, 11.05, 11.5, 11.8); }
+  else if (t > 12.05 && t < 12.6) { fl.textContent = '▶'; fl.style.opacity = win(t, 12.05, 12.15, 12.35, 12.6); }
+  else if (t > 12.9 && t < 13.6) { fl.textContent = '+10 s ⏩'; fl.style.opacity = win(t, 12.9, 13.0, 13.3, 13.6); }
+  else fl.style.opacity = 0;
+
+  // Media chip on the phone
+  show($('chip'), win(t, 10.6, 10.9, 15.2, 15.4));
+
+  // Message banner drops in
+  const b = ease(seg(t, 13.8, 14.2)) * (1 - ease(seg(t, 15.0, 15.3)));
+  $('banner').style.opacity = b;
+  $('banner').style.transform = `translateX(-50%) translateY(${lerp(-40, 0, b)}px)`;
+}
+
+window.render = render;
+window.DURATION = DURATION;
+window.ready = Promise.all([
+  document.fonts.ready,
+  ...[...document.images].map((i) => (i.complete ? Promise.resolve() : new Promise((r) => { i.onload = i.onerror = r; }))),
+]);
+render(0);
+
+// Preview in a browser: video.html?play
+if (location.search.includes('play')) {
+  const start = performance.now();
+  const loop = () => { render(((performance.now() - start) / 1000) % DURATION); requestAnimationFrame(loop); };
+  requestAnimationFrame(loop);
+}
+</script>
+</body>
+</html>
