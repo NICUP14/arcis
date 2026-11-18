@@ -1,3 +1,13 @@
+<img src="https://raw.githubusercontent.com/NICUP14/arcis/main/docs/media/hero.png" width="100%" alt="Arcis: your phone as the remote for your AR glasses">
+
+## What's new
+
+<!--
+  A few bullets, one per change people will notice. Start with the most exciting one.
+  A screenshot or short clip makes a release far more inviting: drag it into this text box
+  on the GitHub release page, or render one with docs/media/render.ps1.
+-->
+
 **New here?** Start with the [getting started guide](https://github.com/NICUP14/arcis/blob/main/docs/getting-started.md).
 
 | File | What it is |

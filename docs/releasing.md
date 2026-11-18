@@ -41,7 +41,8 @@ gh release create "v$v" release\* --title "Arcis $v" --notes-file docs\release-n
 ```
 
 `release/` is ignored by git. `docs/release-notes.md` is the text shown on the release
-page (which file to download, the SmartScreen note); edit it to add what's new.
+page (the hero image, which file to download, the SmartScreen note); fill in "What's new"
+before each release.
 
 ## The signing key
 
