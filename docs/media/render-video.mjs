@@ -1,4 +1,4 @@
-// Renders the concept video (src/video.html) frame by frame with headless Microsoft Edge,
+// Renders the concept video (src/video.html) into demo.mp4 frame by frame with headless Microsoft Edge,
 // then joins the frames into an MP4 with ffmpeg.
 //
 //   node docs/media/render-video.mjs [out.mp4] [--fps 30] [--fresh]
@@ -18,7 +18,7 @@ const args = process.argv.slice(2);
 const fpsAt = args.indexOf('--fps');
 const fps = fpsAt >= 0 ? Number(args[fpsAt + 1]) : 30;
 const fresh = args.includes('--fresh');
-const out = resolve(args.find((a, i) => !a.startsWith('--') && i !== fpsAt + 1) ?? join(here, '..', 'artifacts', 'arcis-render.mp4'));
+const out = resolve(args.find((a, i) => !a.startsWith('--') && i !== fpsAt + 1) ?? join(here, 'demo.mp4'));
 const W = 1920, H = 1080, PORT = 9339, STEP_TIMEOUT_MS = 30_000;
 
 const edge = [

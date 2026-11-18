@@ -14,6 +14,10 @@
 </p>
 
 <p align="center">
+  <a href="docs/media/demo.mp4"><b>▶ Watch the demo</b></a> (18 s)
+</p>
+
+<p align="center">
   <a href="https://github.com/NICUP14/arcis/releases/latest"><b>Download</b></a> ·
   <a href="docs/getting-started.md">Getting started</a> ·
   <a href="docs/using-arcis.md">How to use it</a> ·
