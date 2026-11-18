@@ -1,0 +1,65 @@
+name: Device report
+description: Tell us how Arcis works with your phone and glasses, good or bad.
+title: "[Device] <phone> + <glasses>"
+labels: ["device report"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for testing! Arcis has only been tried on a few devices, so every report helps, even "it all just works".
+  - type: input
+    id: phone
+    attributes:
+      label: Phone
+      description: Make and model.
+      placeholder: Samsung Galaxy S20 FE
+    validations:
+      required: true
+  - type: input
+    id: android
+    attributes:
+      label: Android version
+      placeholder: Android 13 (One UI 5.1)
+    validations:
+      required: true
+  - type: input
+    id: glasses
+    attributes:
+      label: Glasses or screen
+      description: Make and model, and how they're connected (straight to the phone, through a hub or adapter…).
+      placeholder: XREAL 1S, straight to the phone
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Arcis version
+      description: The name of the APK you installed, or Android Settings › Apps › Arcis.
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: checkboxes
+    id: works
+    attributes:
+      label: What worked?
+      description: Tick everything you tried and that worked.
+      options:
+        - label: Arcis Home appears in the glasses
+        - label: Trackpad, taps and scrolling
+        - label: Switching apps from the bottom edge
+        - label: Typing (keyboard button) or speaking (mic button)
+        - label: Drawn shortcuts
+        - label: Video controls (media mode)
+        - label: Message banners
+        - label: My PC through Moonlight and the Arcis Bridge
+        - label: Controlling a Bluetooth device
+  - type: textarea
+    id: problems
+    attributes:
+      label: Anything that didn't work, or felt off?
+      description: What you did, what you expected and what happened. Screenshots or a short video help a lot.
+  - type: input
+    id: pc
+    attributes:
+      label: PC (if you used it)
+      placeholder: Windows 11, Sunshine 2025.x, over Wi-Fi / Tailscale

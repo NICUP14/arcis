@@ -1,0 +1,53 @@
+name: Bug report
+description: Something in Arcis or the Arcis Bridge doesn't work as it should.
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before you start, have a quick look at [Troubleshooting](https://github.com/NICUP14/arcis/blob/main/docs/troubleshooting.md): it may already have the fix.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to make it happen again
+      placeholder: |
+        1. Open …
+        2. Swipe …
+        3. …
+  - type: dropdown
+    id: part
+    attributes:
+      label: Which part?
+      options:
+        - Phone app
+        - Arcis Bridge (PC)
+        - Both / not sure
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Arcis version
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: input
+    id: devices
+    attributes:
+      label: Phone, Android version and glasses
+      placeholder: Galaxy S20 FE, Android 13, XREAL 1S
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Screenshots, video or logs
+      description: Anything that helps. For the Bridge, right-click its tray icon and choose Open log.
