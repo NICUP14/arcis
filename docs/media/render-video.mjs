@@ -1,5 +1,5 @@
-// Renders the concept video (src/video.html) into demo.mp4 frame by frame with headless Microsoft Edge,
-// then joins the frames into an MP4 with ffmpeg.
+// Renders the concept video (src/video.html) frame by frame with headless Microsoft Edge, then
+// joins the frames into demo.mp4 and demo.gif (the one the README links to) with ffmpeg.
 //
 //   node docs/media/render-video.mjs [out.mp4] [--fps 30] [--fresh]
 //
@@ -135,6 +135,13 @@ if (ffmpeg) {
   const r = spawnSync(ffmpeg, ['-loglevel', 'error', ...ffmpegArgs], { stdio: ['ignore', 'ignore', 'inherit'] });
   if (r.status !== 0) throw new Error('ffmpeg failed');
   console.log(`video: ${out}`);
+  // The GIF next to it is what the README links to: GitHub shows GIFs but won't play an MP4.
+  const gif = out.replace(/\.mp4$/i, '') + '.gif';
+  const g = spawnSync(ffmpeg, ['-loglevel', 'error', '-y', '-i', out, '-filter_complex',
+    'fps=15,scale=1280:-1:flags=lanczos,split[a][b];[a]palettegen=stats_mode=full[p];[b][p]paletteuse=dither=sierra2_4a',
+    gif], { stdio: ['ignore', 'ignore', 'inherit'] });
+  if (g.status !== 0) throw new Error('ffmpeg (gif) failed');
+  console.log(`gif: ${gif}`);
 } else {
   console.log(`ffmpeg not found. Frames are in ${frames}; make the video with:\n  ffmpeg ${ffmpegArgs.join(' ')}`);
 }

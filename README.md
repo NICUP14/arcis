@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  <a href="docs/media/demo.mp4"><b>▶ Watch the demo</b></a> (18 s)
+  <a href="docs/media/demo.gif"><b>▶ Watch the demo</b></a> (18 s)
 </p>
 
 <p align="center">
